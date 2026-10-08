@@ -1,0 +1,200 @@
+PASS: edge debounce
+PASS: edge hover expands at 120 ms
+PASS: leave starts delay
+PASS: leave collapses after 650 ms
+PASS: modal/menu blocks hover
+PASS: pin keeps expanded
+PASS: modal blocks collapse
+PASS: floating never auto hides
+PASS: outside press overrides opening grace
+PASS: external mouse drag does not reopen panel
+PASS: press inside keeps drag interaction open
+PASS: release outside resumes automatic collapse
+PASS: pinned panel ignores outside press
+PASS: modal ignores outside press
+PASS: negative monitor bounds / 150% DPI / Left
+PASS: trigger inside monitor / Left
+PASS: negative monitor bounds / 150% DPI / Right
+PASS: trigger inside monitor / Right
+PASS: negative monitor bounds / 150% DPI / Top
+PASS: trigger inside monitor / Top
+PASS: negative monitor bounds / 150% DPI / Bottom
+PASS: trigger inside monitor / Bottom
+PASS: negative monitor bounds / 150% DPI / Floating
+PASS: trigger inside monitor / Floating
+PASS: small work area clamps panel
+PASS: drag snap to left
+PASS: drag away becomes floating
+PASS: crossed left edge still docks (reported regression)
+PASS: crossed right edge still docks (reported regression)
+PASS: near left edge uses wider magnetic zone
+PASS: resize geometry / Left
+PASS: resize geometry / Right
+PASS: resize geometry / Top
+PASS: resize geometry / Bottom
+PASS: resize geometry / Left, Top
+PASS: resize geometry / Right, Bottom
+PASS: resize keeps attached edge anchored
+PASS: resize minimum width and height
+PASS: relative luminance
+PASS: wallpaper thresholds
+PASS: brightness hysteresis
+PASS: Unicode / tab rename / shortcut JSON round trip
+PASS: settings persist
+PASS: size and opacity persist
+PASS: three column proportions persist in JSON
+PASS: older files receive default column proportions without losing shortcuts
+PASS: invalid column widths are repaired before WPF layout
+PASS: v0.1 data migration preserves shortcuts
+PASS: delete tab and active-tab recovery
+PASS: corrupt primary preserves evidence and recovers backup
+PASS: unsupported import version rejected
+PASS: emoji notes and pins persist; legacy color migrates to nearest palette
+PASS: global font scale and notes visibility persist
+PASS: v0.3 migration defaults to normal font and visible notes without losing emoji
+PASS: legacy notes migrate to empty text
+PASS: Unicode 17 coverage: all 3944 fully-qualified emoji and 5225 presentation sequences
+PASS: color PNG rendering preserves family, profession, flags, skin tone, keycap and new emoji as whole images
+PASS: Template.txt format imports three shortcuts
+PASS: TXT trims separators and preserves later @ and emoji
+PASS: invalid TXT reports exact line before mutation
+PASS: TXT decoding / 65001 / BOM 0
+PASS: TXT decoding / 65001 / BOM 3
+PASS: TXT decoding / 1200 / BOM 2
+PASS: TXT decoding / 54936 / BOM 0
+PASS: TXT append deduplicates without overwriting notes or pins
+PASS: TXT over-limit import leaves destination unchanged
+PASS: only three palette colors match the supplied triadic image
+PASS: legacy custom colors map to the nearest supported palette
+PASS: emoji scales with text while preserving a whole ZWJ sequence
+PASS: uploaded Xiaohongshu icon decodes from the embedded image
+PASS: WPF window and native controller start
+PASS: three-column shortcut table renders
+PASS: uploaded icon and requested subtitle render together
+PASS: theme applies / Light
+PASS: theme applies / Dark
+PASS: theme applies / Glass
+PASS: theme applies / Auto
+PASS: English UI rebuild
+PASS: English columns retain width after UI rebuild
+PASS: create tab through real modal UI
+PASS: add shortcut through real modal UI
+PASS: edit shortcut through real modal UI
+PASS: add emoji notes through real modal UI
+PASS: context action pins selected shortcut
+PASS: action editor retains notes and shortcut pin
+PASS: empty notes can be saved to clear a cell
+PASS: rename dialog and saved state
+PASS: pinned shortcut moves above unpinned rows
+PASS: right-click menu offers unpin for pinned row
+PASS: unpin restores original relative order
+PASS: multiple pinned shortcuts retain source order
+PASS: search includes notes
+PASS: TXT preview creates named software tab through modal UI
+PASS: repeat TXT import safely skips duplicates
+PASS: TXT preview cancel leaves tabs and shortcuts unchanged
+PASS: four resize edges and four corner grips render
+PASS: transparency slider changes rendered background alpha / False (opacity=0.75, alpha=191)
+PASS: settings provides exactly three colors and no HEX / wheel picker
+PASS: palette click previews the selected pink color / False
+PASS: font slider previews all text without rebuilding or losing search / False
+PASS: settings checkbox previews collapsed notes / False
+PASS: settings cancel restores opacity, palette, font size and notes visibility
+PASS: transparency slider changes rendered background alpha / True (opacity=0.75, alpha=191)
+PASS: settings provides exactly three colors and no HEX / wheel picker
+PASS: palette click previews the selected pink color / True
+PASS: font slider previews all text without rebuilding or losing search / True
+PASS: settings checkbox previews collapsed notes / True
+PASS: settings save transparency
+PASS: settings save palette, text size and notes visibility
+PASS: toolbar expands notes and redistributes columns without changing entries
+PASS: toolbar collapses notes and remembers choice
+PASS: notes visibility survives tab / language rebuild
+PASS: light palette uses a softer neutral surface around the supplied color / #E0EAFE
+PASS: soft palette keeps readable shortcut text and white controls / #E0EAFE
+PASS: dark appearance retains a dark variant / #E0EAFE
+PASS: light palette uses a softer neutral surface around the supplied color / #FEE0EA
+PASS: soft palette keeps readable shortcut text and white controls / #FEE0EA
+PASS: dark appearance retains a dark variant / #FEE0EA
+PASS: light palette uses a softer neutral surface around the supplied color / #EAFEE0
+PASS: soft palette keeps readable shortcut text and white controls / #EAFEE0
+PASS: dark appearance retains a dark variant / #EAFEE0
+PASS: wallpaper sampling completes (dark=False)
+PASS: native window placement / Left
+PASS: native collapse / Left
+PASS: native expand / Left
+PASS: reopening retains one edge controller / Left
+PASS: native window placement / Right
+PASS: native collapse / Right
+PASS: native expand / Right
+PASS: reopening retains one edge controller / Right
+PASS: native window placement / Top
+PASS: native collapse / Top
+PASS: native expand / Top
+PASS: reopening retains one edge controller / Top
+PASS: native window placement / Bottom
+PASS: native collapse / Bottom
+PASS: native expand / Bottom
+PASS: reopening retains one edge controller / Bottom
+PASS: native drag release beyond screen snaps / Left
+PASS: production pointer leave auto hides after drag / Left
+PASS: production outside click hides after drag / Left
+PASS: resizing blocks outside collapse / Left
+PASS: native resizing retains attached edge / Left
+PASS: resized width saved / Left
+PASS: native drag release beyond screen snaps / Right
+PASS: production pointer leave auto hides after drag / Right
+PASS: production outside click hides after drag / Right
+PASS: resizing blocks outside collapse / Right
+PASS: native resizing retains attached edge / Right
+PASS: resized width saved / Right
+PASS: maximum text size resizes title and table row height
+PASS: real table emoji and notes grow with the global text setting
+PASS: large text keeps at least one readable shortcut row and notes toggle at minimum panel size
+PASS: border resize respects minimum height required by large text
+PASS: transparency slider changes rendered background alpha / False (opacity=0.75, alpha=191)
+PASS: settings provides exactly three colors and no HEX / wheel picker
+PASS: palette click previews the selected pink color / False
+PASS: font slider previews all text without rebuilding or losing search / False
+PASS: settings checkbox previews collapsed notes / False
+PASS: settings cancel restores height after a font preview temporarily enlarges a small panel
+PASS: smaller uploaded icon and distinct title / subtitle gap render
+PASS: pin button enables and persists editing lock
+PASS: fixed panel disables content, settings and all resize grips
+PASS: fixed footer includes the requested editing-lock status
+PASS: fixed row menu disables edit, delete, notes and shortcut pin
+PASS: template download sits immediately below TXT import and stays available while fixed
+PASS: fixed modal entry points also reject editing
+PASS: editing commands cannot alter stored content, settings or geometry while fixed
+PASS: fixed search remains editable and filters shortcuts
+PASS: downloaded UTF-8 template imports successfully and does not unlock the panel
+PASS: download status preserves the pinned editing-lock footer
+PASS: fixed tab navigation works and rebuilt controls remain locked
+PASS: notes can still be viewed or collapsed without unlocking content
+PASS: unpin restores editing, settings and resizing
+PASS: notes editor works again after unpin
+PASS: manual collapse clears pin and editing lock together
+PASS: native header resize handle is available / 0
+PASS: column drag prevents automatic hiding / 0
+PASS: real WPF header drag changes and saves width / 0 (before=153.7, after=181.7, depth=0)
+PASS: native header resize handle is available / 1
+PASS: column drag prevents automatic hiding / 1
+PASS: real WPF header drag changes and saves width / 1 (before=137.6, after=165.6, depth=0)
+PASS: native header resize handle is available / 2
+PASS: column drag prevents automatic hiding / 2
+PASS: real WPF header drag changes and saves width / 2 (before=73.7, after=54.6, depth=0)
+PASS: hiding notes expands the two remaining columns using their saved proportions
+PASS: resizing with notes hidden preserves the saved notes width
+PASS: notes expansion and language rebuild restore custom column proportions
+PASS: pin also locks all three header resize handles
+PASS: unpin restores column resizing
+PASS: background becomes translucent while title, keys and emoji remain opaque / Light
+PASS: background becomes translucent while title, keys and emoji remain opaque / Dark
+PASS: background becomes translucent while title, keys and emoji remain opaque / Glass
+PASS: background becomes translucent while title, keys and emoji remain opaque / Auto
+PASS: system glass blurs the dedicated test backdrop (clear=51.91, glass=1.37, available=True)
+PASS: system glass preserves the test backdrop's different blue and pink regions
+PASS: glass uses bright text over the dark colored test backdrop
+PASS: normal screen capture visibility is restored after taking the glass background
+PASS: visible glass refreshes the changing background and adapts text contrast
+PASS: glass-mode editor keeps a fully opaque background and legible text

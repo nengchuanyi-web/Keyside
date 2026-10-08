@@ -1,0 +1,9 @@
+dist/
+qa*/
+deliverables/
+*.zip
+!assets/emoji.zip
+work/
+*.user
+bin/
+obj/

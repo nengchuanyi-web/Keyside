@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{9A58F837-62E8-4DB0-B7BC-3BF892B82C78}</ProjectGuid>
+    <OutputType>WinExe</OutputType><RootNamespace>ShortcutDock</RootNamespace><AssemblyName>Keyside</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion><PlatformTarget>x64</PlatformTarget><Prefer32Bit>false</Prefer32Bit>
+    <OutputPath>bin\$(Configuration)\</OutputPath><ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>assets\Keyside.ico</ApplicationIcon><StartupObject>ShortcutDock.Program</StartupObject>
+    <WarningLevel>4</WarningLevel><LangVersion>5</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'"><Optimize>true</Optimize></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'"><DebugSymbols>true</DebugSymbols><DebugType>full</DebugType></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.Xml"/>
+    <Reference Include="System.Drawing"/><Reference Include="System.Windows.Forms"/><Reference Include="System.Runtime.Serialization"/>
+    <Reference Include="System.IO.Compression"/>
+    <Reference Include="PresentationCore"/><Reference Include="PresentationFramework"/><Reference Include="WindowsBase"/><Reference Include="System.Xaml"/>
+    <Compile Include="src\*.cs"/>
+    <EmbeddedResource Include="src\Ui.xaml"><LogicalName>ShortcutDock.Ui.xaml</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="assets\Xiaohongshu.png"><LogicalName>ShortcutDock.Xiaohongshu.png</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="assets\emoji.zip"><LogicalName>ShortcutDock.emoji.zip</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="assets\emoji-map.txt"><LogicalName>ShortcutDock.emoji-map.txt</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="assets\emoji-test-17.0.txt"><LogicalName>ShortcutDock.emoji-test-17.0.txt</LogicalName></EmbeddedResource>
+    <Content Include="Keyside.exe.config"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <None Include="app.manifest"/><None Include="README.md"/><None Include="docs\*.md"/><None Include="build.ps1"/>
+    <None Include="assets\Keyside.ico"/>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>

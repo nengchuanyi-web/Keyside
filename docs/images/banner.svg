@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">Keyside — shortcuts, always at your side</title>
+  <desc id="desc">A soft blue, pink and green banner with keyboard shortcuts in a glass panel.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#E0EAFE"/><stop offset=".55" stop-color="#FEE0EA"/><stop offset="1" stop-color="#EAFEE0"/>
+    </linearGradient>
+    <linearGradient id="pane" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ffffff" stop-opacity=".78"/><stop offset="1" stop-color="#ffffff" stop-opacity=".38"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="420" rx="28" fill="url(#bg)"/>
+  <circle cx="1110" cy="42" r="176" fill="#fff" opacity=".24"/>
+  <circle cx="340" cy="430" r="210" fill="#fff" opacity=".2"/>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <text x="72" y="100" fill="#66748f" font-size="14" font-weight="600" letter-spacing="5">A LITTLE SPACE FOR YOUR SHORTCUTS</text>
+    <text x="68" y="190" fill="#253248" font-size="78" font-weight="700" letter-spacing="-3">Keyside</text>
+    <text x="72" y="241" fill="#526078" font-size="25">Shortcuts, always at your side.</text>
+    <rect x="72" y="292" width="112" height="32" rx="16" fill="#fff" fill-opacity=".62"/>
+    <rect x="197" y="292" width="105" height="32" rx="16" fill="#fff" fill-opacity=".62"/>
+    <rect x="315" y="292" width="110" height="32" rx="16" fill="#fff" fill-opacity=".62"/>
+    <g fill="#596882" font-size="12" text-anchor="middle">
+      <text x="128" y="313">EDGE DOCKING</text><text x="249" y="313">GLASS UI</text><text x="370" y="313">OFFLINE</text>
+    </g>
+    <rect x="691" y="50" width="439" height="332" rx="24" fill="#6d7894" opacity=".09"/>
+    <rect x="684" y="43" width="439" height="332" rx="24" fill="url(#pane)" stroke="#fff" stroke-opacity=".9" stroke-width="2"/>
+    <text x="715" y="81" fill="#7b89a0" font-size="11" letter-spacing="3">KEYSIDE</text>
+    <text x="715" y="113" fill="#28374d" font-size="22" font-weight="600">Your app. Your shortcuts.</text>
+    <rect x="715" y="131" width="95" height="28" rx="8" fill="#E0EAFE"/>
+    <text x="729" y="150" fill="#4d638a" font-size="12">Photoshop</text>
+    <text x="833" y="150" fill="#5e697d" font-size="12">VS Code</text>
+    <rect x="716" y="180" width="375" height="35" rx="9" fill="#fff" fill-opacity=".57" stroke="#c6d0df" stroke-opacity=".6"/>
+    <circle cx="735" cy="196" r="5" fill="none" stroke="#8796ae" stroke-width="1.4"/>
+    <path d="m731 200-4 4" stroke="#8796ae" stroke-width="1.4"/>
+    <text x="752" y="202" fill="#8591a7" font-size="12">Search shortcuts, actions and notes...</text>
+    <text x="716" y="243" fill="#79869d" font-size="11">SHORTCUT</text>
+    <text x="872" y="243" fill="#79869d" font-size="11">ACTION</text>
+    <path d="M715 253H1091M715 298H1091" stroke="#a4b2c8" stroke-opacity=".3"/>
+    <g font-size="13">
+      <text x="718" y="282" fill="#607baa" font-family="Consolas, monospace">Ctrl + S</text>
+      <text x="872" y="282" fill="#43516a">Save</text>
+      <text x="718" y="328" fill="#607baa" font-family="Consolas, monospace">Ctrl + Shift + S</text>
+      <text x="872" y="328" fill="#43516a">Save as</text>
+    </g>
+    <rect x="1117" y="121" width="5" height="170" rx="2.5" fill="#7992bb" fill-opacity=".4"/>
+  </g>
+</svg>

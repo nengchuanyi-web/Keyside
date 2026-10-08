@@ -1,0 +1,3 @@
+Ctrl + N@新建文档 / New document
+Ctrl + O@打开文件 / Open file
+Ctrl + S@保存 / Save
