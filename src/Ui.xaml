@@ -38,7 +38,9 @@
     <Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="10,8"/>
     <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox">
       <Border x:Name="Frame" CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
-        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+        <!-- TextBox applies Padding to its content host; adding a second
+             margin clips the text and caret in the fixed-height search box. -->
+        <ScrollViewer x:Name="PART_ContentHost"/>
       </Border><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger></ControlTemplate.Triggers>
     </ControlTemplate></Setter.Value></Setter>
   </Style>
@@ -62,7 +64,7 @@
     <Setter Property="CanUserResizeRows" Value="False"/><Setter Property="CanUserResizeColumns" Value="True"/>
     <Setter Property="CanUserReorderColumns" Value="False"/><Setter Property="AutoGenerateColumns" Value="False"/>
     <Setter Property="CanUserAddRows" Value="False"/><Setter Property="CanUserDeleteRows" Value="False"/>
-    <Setter Property="IsReadOnly" Value="True"/><Setter Property="SelectionMode" Value="Single"/>
+    <Setter Property="IsReadOnly" Value="True"/><Setter Property="SelectionMode" Value="Extended"/>
     <Setter Property="SelectionUnit" Value="FullRow"/>
     <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
   </Style>

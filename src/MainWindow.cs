@@ -17,7 +17,7 @@ using Forms = System.Windows.Forms;
 
 namespace ShortcutDock
 {
-    public sealed class MainWindow : Window
+    public sealed partial class MainWindow : Window
     {
         public AppState State { get; private set; }
         public Strings T { get; private set; }
@@ -30,6 +30,14 @@ namespace ShortcutDock
         public bool HasActiveInteraction { get { return menusOpen > 0 || (search != null && search.IsKeyboardFocusWithin && inputClock.ElapsedMilliseconds - lastSearchInput < 1500); } }
         public DataGrid ShortcutGrid { get { return grid; } }
         public bool IsEditingLocked { get { return State.Pinned; } }
+        internal string SearchQuery { get { return search == null ? "" : search.Text.Trim(); } }
+        internal RowReorder RowOrder { get { return rowReorder; } }
+        RowReorder rowReorder;
+        TabGroupDrag tabDrag;
+        Button tabBack;
+        ScrollViewer tabScroll;
+        internal TabGroupDrag GroupDrag { get { return tabDrag; } }
+        internal ScrollViewer TabBarScroll { get { return tabScroll; } }
         sealed class EditingAction { public Control Control; public Func<bool> Available; }
         readonly List<EditingAction> editingActions = new List<EditingAction>();
         StackPanel titleHandle;
@@ -78,6 +86,8 @@ namespace ShortcutDock
             Closing += delegate {
                 closing = true; sampleGeneration++;
                 if (wallpaperTimer != null) wallpaperTimer.Stop();
+                if (rowReorder != null) rowReorder.Dispose();
+                if (tabDrag != null) tabDrag.Dispose();
                 if (Dock != null) Dock.Dispose();
                 if (columnSizing != null) columnSizing.Dispose();
                 if (desktopGlass != null) desktopGlass.Dispose();
@@ -85,7 +95,13 @@ namespace ShortcutDock
                 Save();
             };
             PreviewKeyDown += delegate(object sender, KeyEventArgs e) {
-                if (e.Key == Key.Escape) { Keyboard.ClearFocus(); if (Dock != null && !State.Pinned) Dock.Collapse(); e.Handled = true; }
+                if (e.Key == Key.Escape)
+                {
+                    if (rowReorder != null && rowReorder.IsInteracting) rowReorder.Cancel();
+                    else if (tabDrag != null && tabDrag.IsInteracting) tabDrag.Cancel();
+                    else { Keyboard.ClearFocus(); if (Dock != null && !State.Pinned) Dock.Collapse(); }
+                    e.Handled = true;
+                }
             };
             Rebuild();
         }
@@ -119,6 +135,8 @@ namespace ShortcutDock
             }
             if (titleHandle != null) titleHandle.Cursor = IsEditingLocked ? Cursors.Arrow : Cursors.SizeAll;
             if (columnSizing != null) columnSizing.SetLocked(IsEditingLocked);
+            if (rowReorder != null) rowReorder.SetLocked(IsEditingLocked);
+            if (tabDrag != null) tabDrag.SetLocked(IsEditingLocked);
             if (hint != null) { hint.Text = T[IsEditingLocked ? "LockedHint" : "RowHint"]; hint.ToolTip = hint.Text; }
         }
         internal void TogglePanelPin()
@@ -128,6 +146,8 @@ namespace ShortcutDock
         }
         public void Rebuild()
         {
+            if (rowReorder != null) { rowReorder.Dispose(); rowReorder = null; }
+            if (tabDrag != null) { tabDrag.Dispose(); tabDrag = null; }
             if (columnSizing != null) { columnSizing.Dispose(); columnSizing = null; }
             editingActions.Clear();
             T = new Strings(State.Language); Title = "Keyside · " + T["Title"];
@@ -177,14 +197,28 @@ namespace ShortcutDock
             Grid.SetColumn(controls, 1); header.Children.Add(controls); body.Children.Add(header);
 
             Grid tabArea = new Grid { Margin = new Thickness(0, 8, 0, 3) };
+            tabArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             tabArea.ColumnDefinitions.Add(new ColumnDefinition()); tabArea.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            tabBack = null; tabDrag = new TabGroupDrag(this);
+            if (State.ActiveGroupId != null)
+            {
+                tabBack = Button("‹", T["BackToTabs"], LeaveGroup); tabBack.Name = "BackToTabs";
+                tabBack.Width = 28; tabBack.FontSize = 20; tabBack.Padding = new Thickness(0); FontSizing.Set(tabBack, 20);
+                tabArea.Children.Add(tabBack);
+            }
             tabs = new StackPanel { Orientation = Orientation.Horizontal };
-            ScrollViewer tabScroll = new ScrollViewer { Content = tabs, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
-            tabArea.Children.Add(tabScroll);
-            Button plus = Button("+", T["AddTab"], AddTab); plus.Width = 31; plus.Padding = new Thickness(0); plus.FontSize = 20;
+            tabScroll = new ScrollViewer { Content = tabs, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled };
+            tabDrag.BindBar(tabs, tabScroll);
+            Grid.SetColumn(tabScroll, 1); tabArea.Children.Add(tabScroll);
+            Button plus = Button("+", T[State.ActiveGroupId == null ? "AddTabOrGroup" : "AddTab"], delegate { }); plus.Width = 31; plus.Padding = new Thickness(0); plus.FontSize = 20;
             plus.Name = "AddSoftwareTab"; RegisterEditingControl(plus);
             FontSizing.Set(plus, 20);
-            Grid.SetColumn(plus, 1); tabArea.Children.Add(plus); Grid.SetRow(tabArea, 1); body.Children.Add(tabArea); RenderTabs();
+            ContextMenu addMenu = Menu();
+            MenuItem addTab = Item(T["AddTab"], AddTab), addGroup = Item(T["AddGroup"], AddGroup);
+            RegisterEditingControl(addTab); RegisterEditingControl(addGroup, delegate { return State.ActiveGroupId == null; });
+            addMenu.Items.Add(addTab); addMenu.Items.Add(addGroup); plus.ContextMenu = addMenu;
+            plus.Click += delegate { if (IsEditingLocked) return; if (State.ActiveGroupId != null) AddTab(); else { addMenu.PlacementTarget = plus; addMenu.IsOpen = true; } };
+            Grid.SetColumn(plus, 2); tabArea.Children.Add(plus); Grid.SetRow(tabArea, 1); body.Children.Add(tabArea); RenderTabs();
 
             Grid searchArea = new Grid { Margin = new Thickness(0, 11, 0, 12) };
             search = new TextBox { Name = "ShortcutSearch", Padding = new Thickness(32, 8, 12, 8), VerticalContentAlignment = VerticalAlignment.Center };
@@ -196,7 +230,7 @@ namespace ShortcutDock
             TextBlock placeholder = new TextBlock { Text = T["Search"], Margin = new Thickness(33, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false, FontSize = 12 };
             FontSizing.Set(placeholder, 12);
             BindBrush(placeholder, TextBlock.ForegroundProperty, "MutedBrush"); searchArea.Children.Add(placeholder);
-            search.TextChanged += delegate { placeholder.Visibility = search.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed; RenderRows(); };
+            search.TextChanged += delegate { if (rowReorder != null) rowReorder.Cancel(); placeholder.Visibility = search.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed; RenderRows(); };
             search.PreviewKeyDown += delegate { lastSearchInput = inputClock.ElapsedMilliseconds; };
             search.PreviewMouseLeftButtonDown += delegate { Activate(); };
             Grid.SetRow(searchArea, 2); body.Children.Add(searchArea);
@@ -207,21 +241,28 @@ namespace ShortcutDock
             grid.Columns.Add(Column(T["Keys"], "Keys", true)); grid.Columns.Add(Column(T["Description"], "Description", false));
             grid.Columns.Add(Column(T["Notes"], "Notes", false));
             columnSizing = new ColumnSizing(this, grid);
+            rowReorder = new RowReorder(this, grid);
             grid.MouseDoubleClick += delegate(object sender, MouseButtonEventArgs e) {
                 e.Handled = EditCell(e.OriginalSource as DependencyObject);
             };
-            grid.PreviewMouseRightButtonDown += delegate(object sender, MouseButtonEventArgs e) { DataGridRow row = FindRow(e.OriginalSource as DependencyObject); if (row != null) row.IsSelected = true; else grid.SelectedItem = null; };
+            grid.PreviewMouseRightButtonDown += delegate(object sender, MouseButtonEventArgs e) {
+                if (rowReorder != null) rowReorder.Cancel();
+                DataGridRow row = FindRow(e.OriginalSource as DependencyObject);
+                if (row == null) grid.SelectedItems.Clear();
+                else if (!row.IsSelected) { grid.SelectedItems.Clear(); grid.SelectedItem = row.Item; }
+            };
             ContextMenu rowsMenu = Menu();
             MenuItem edit = Item(T["EditShortcut"], EditRow), delete = Item(T["DeleteShortcut"], DeleteRow);
             MenuItem pin = Item(T["PinRow"], ToggleRowPin), notes = Item(T["EditNotes"], EditNotes);
             rowsMenu.Items.Add(pin); rowsMenu.Items.Add(notes); rowsMenu.Items.Add(new Separator()); rowsMenu.Items.Add(edit); rowsMenu.Items.Add(delete);
-            foreach (MenuItem item in new[] { pin, notes, edit, delete }) RegisterEditingControl(item, delegate { return grid.SelectedItem is ShortcutEntry; });
+            foreach (MenuItem item in new[] { pin, notes, edit, delete }) RegisterEditingControl(item, delegate { return grid.SelectedItems.Count == 1 && grid.SelectedItem is ShortcutEntry; });
             rowsMenu.Opened += delegate {
                 ShortcutEntry row = grid.SelectedItem as ShortcutEntry;
-                pin.IsEnabled = notes.IsEnabled = edit.IsEnabled = delete.IsEnabled = row != null && !IsEditingLocked;
+                pin.IsEnabled = notes.IsEnabled = edit.IsEnabled = delete.IsEnabled = row != null && grid.SelectedItems.Count == 1 && !IsEditingLocked;
                 pin.Header = T[row != null && row.Pinned ? "UnpinRow" : "PinRow"];
             };
             grid.ContextMenu = rowsMenu; listArea.Children.Add(grid);
+            grid.SelectionChanged += delegate { UpdateEditingLock(); };
             empty = new TextBlock { Text = T["NoRows"], HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(18) };
             BindBrush(empty, TextBlock.ForegroundProperty, "MutedBrush"); listArea.Children.Add(empty);
             Grid.SetRow(listArea, 3); body.Children.Add(listArea);
@@ -284,7 +325,7 @@ namespace ShortcutDock
         }
         internal bool EditCell(DependencyObject source)
         {
-            if (IsEditingLocked) return false;
+            if (IsEditingLocked || grid.SelectedItems.Count > 1) return false;
             DataGridCell cell = FindCell(source); DataGridRow row = cell == null ? null : FindRow(cell);
             if (row == null || !(row.Item is ShortcutEntry)) return false;
             grid.SelectedItem = row.Item;
@@ -309,40 +350,29 @@ namespace ShortcutDock
         }
         static MenuItem Item(string title, Action action) { MenuItem item = new MenuItem { Header = title }; item.Click += delegate { action(); }; return item; }
         public SoftwareTab ActiveTab() { return State.Tabs.FirstOrDefault(t => t.Id == State.ActiveTabId); }
-        void RenderTabs()
-        {
-            editingActions.RemoveAll(a => (a.Control.Tag as string) == "TabManagement");
-            tabs.Children.Clear();
-            foreach (SoftwareTab tab in State.Tabs)
-            {
-                SoftwareTab captured = tab;
-                Button button = Button(tab.Name, tab.Name, delegate { State.ActiveTabId = captured.Id; Rebuild(); Save(); });
-                button.Tag = tab.Id;
-                button.MaxWidth = 160; button.Margin = new Thickness(0, 0, 4, 0);
-                button.Content = new TextBlock { Text = tab.Name, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 130 };
-                if (tab.Id == State.ActiveTabId) { BindBrush(button, Control.BackgroundProperty, "AccentFillBrush"); BindBrush(button, Control.ForegroundProperty, "AccentBrush"); }
-                ContextMenu menu = Menu();
-                MenuItem rename = Item(T["Rename"], delegate { RenameTab(captured); }), remove = Item(T["DeleteTab"], delegate { DeleteTab(captured); });
-                rename.Tag = remove.Tag = "TabManagement";
-                RegisterEditingControl(rename); RegisterEditingControl(remove); menu.Items.Add(rename); menu.Items.Add(remove);
-                button.ContextMenu = menu; tabs.Children.Add(button);
-            }
-        }
         public void RenderRows()
         {
             if (grid == null || empty == null) return;
-            SoftwareTab tab = ActiveTab(); string query = search == null ? "" : search.Text.Trim();
+            HashSet<string> selected = new HashSet<string>(grid.SelectedItems.OfType<ShortcutEntry>().Select(row => row.Id));
+            SoftwareTab tab = ActiveTab(); string query = SearchQuery;
             List<ShortcutEntry> rows = tab == null ? new List<ShortcutEntry>() : tab.Shortcuts.Where(s => s.Keys.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 || s.Description.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 || (s.Notes ?? "").IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).OrderByDescending(s => s.Pinned).ToList();
-            grid.ItemsSource = rows; empty.Text = T[tab == null ? "NoTabs" : "NoRows"];
+            grid.ItemsSource = rows;
+            empty.Text = T[tab != null ? "NoRows" : State.ActiveGroupId != null ? "EmptyGroup" : State.Groups.Count > 0 ? "RootEmpty" : "NoTabs"];
+            foreach (ShortcutEntry row in rows) if (selected.Contains(row.Id)) grid.SelectedItems.Add(row);
             empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             if (count != null) count.Text = String.Format(T["Count"], rows.Count);
+        }
+        internal bool ReorderRows(IList<string> ids, int insertion)
+        {
+            if (IsEditingLocked || !RowOrdering.Move(ActiveTab(), grid.Items.OfType<ShortcutEntry>().ToList(), ids, insertion)) return false;
+            RenderRows(); Save(); return true;
         }
         internal void AddTab()
         {
             if (IsEditingLocked) return;
             if (State.Tabs.Count >= 200) { Report(T["LimitTabs"]); return; }
             string name = Dialogs.TabName(this, null); if (name == null) return;
-            SoftwareTab tab = new SoftwareTab { Name = name }; State.Tabs.Add(tab); State.ActiveTabId = tab.Id; Rebuild(); Save();
+            SoftwareTab tab = new SoftwareTab { Name = name, GroupId = State.ActiveGroupId }; State.Tabs.Add(tab); State.ActiveTabId = tab.Id; Rebuild(); Save();
         }
         internal void AddRow()
         {
@@ -353,27 +383,27 @@ namespace ShortcutDock
         }
         internal void EditRow()
         {
-            if (IsEditingLocked) return;
+            if (IsEditingLocked || grid.SelectedItems.Count != 1) return;
             ShortcutEntry old = grid.SelectedItem as ShortcutEntry; if (old == null) return;
             ShortcutEntry row = Dialogs.Shortcut(this, old); if (row == null) return;
             old.Keys = row.Keys; old.Description = row.Description; RenderRows(); Save();
         }
         internal void EditNotes()
         {
-            if (IsEditingLocked) return;
+            if (IsEditingLocked || grid.SelectedItems.Count != 1) return;
             ShortcutEntry row = grid.SelectedItem as ShortcutEntry; if (row == null) return;
             string notes = Dialogs.Notes(this, row.Notes); if (notes == null) return;
             row.Notes = notes; RenderRows(); grid.SelectedItem = row; Save();
         }
         internal void ToggleRowPin()
         {
-            if (IsEditingLocked) return;
+            if (IsEditingLocked || grid.SelectedItems.Count != 1) return;
             ShortcutEntry row = grid.SelectedItem as ShortcutEntry; if (row == null) return;
             row.Pinned = !row.Pinned; RenderRows(); grid.SelectedItem = row; Save();
         }
         internal void DeleteRow()
         {
-            if (IsEditingLocked) return;
+            if (IsEditingLocked || grid.SelectedItems.Count != 1) return;
             ShortcutEntry row = grid.SelectedItem as ShortcutEntry;
             if (row == null || !Dialogs.Confirm(this, String.Format(T["DeleteQuestion"], row.Keys))) return;
             ActiveTab().Shortcuts.Remove(row); RenderRows(); Save();
@@ -540,13 +570,13 @@ namespace ShortcutDock
             if (creating)
             {
                 if (State.Tabs.Count >= 200) { Report(T["LimitTabs"]); return; }
-                tab = new SoftwareTab { Name = choice.Name };
+                tab = new SoftwareTab { Name = choice.Name, GroupId = State.ActiveGroupId };
             }
             int skipped, added;
             try { added = TextImport.Append(tab, rows, out skipped); }
             catch (InvalidDataException) { Report(T["ImportLimit"]); return; }
             if (creating) State.Tabs.Add(tab);
-            State.ActiveTabId = tab.Id; Rebuild(); Save(); Report(String.Format(T["ImportedTxt"], added, skipped));
+            State.ActiveGroupId = tab.GroupId; State.ActiveTabId = tab.Id; Rebuild(); Save(); Report(String.Format(T["ImportedTxt"], added, skipped));
         }
         void DownloadTemplate()
         {

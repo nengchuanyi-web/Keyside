@@ -1,8 +1,38 @@
-# Keyside 0.6 · Windows 快捷键侧边面板
+# Keyside 0.9 · Windows 快捷键侧边面板
 
 - 已生成可双击运行的 `dist/Keyside.exe`；Windows 10/11 x64，.NET Framework 4.8，无网络依赖。
 - 四边吸附、边缘悬停展开、自动收起、软件标签页、快捷键 / 功能 / 备注三列、四种主题和中英界面。
 - 独立 C# / WPF 实现；Afterhours 仓库分析和架构说明见 `docs/`。
+
+## 0.9 更新：标签页与标签组排序
+
+按住软件标签或组标签的鼠标左键约 0.3 秒后拖动。拖到标签左右边缘会出现竖直插入线，松开即可改变前后顺序；外层软件标签与组可混合排列，组内软件标签也可排序。顺序立即保存，重启和 JSON 备份保留。新建标签、组，以及从组内移出的标签会追加到外层已有顺序之后。
+
+将软件标签拖到组标签中间，边框出现主题色高亮后松开，即可加入组；组标签左右各约四分之一区域用于排序。组之间不嵌套。标签栏放不下时，拖到左右边缘可以滚动寻找位置。按 Esc 或放到标签栏外取消，拖动期间保持展开；固定面板时锁定排序。排序保留当前搜索、活动标签和词条选择，单击软件标签、双击组和返回导航照常使用。
+
+解散组时，成员按组内顺序替换该组在外层的位置，保留周围已排好的标签顺序。旧数据自动补齐排序字段：原有组和软件标签沿用 v0.8 的显示顺序，成员顺序不变。
+
+## 0.8 更新：标签组
+
+外层标签栏点击 `+`，选择“新建标签组”，填写名称。组标签显示名称和成员数量；单击保持当前位置，双击进入组内标签页，左侧 `‹` 返回外层。当前支持一层分组，组内的 `+` 直接创建软件标签。
+
+按住组外软件标签拖到组标签上，组边框出现主题色高亮后松开，即可移入。拖动不复制或清空快捷键，组外标签移入后从外层隐藏；双击目标组即可查看。组内可右键成员 → “移出标签组”，也可拖到返回箭头上移出。
+
+右键组标签或组内名称可重命名、解散。解散前有确认提示，只将成员移回外层，保留所有快捷键、备注、置顶与顺序。每组名称最长 60 字符，最多 200 个组；软件标签总上限仍为 200。
+
+分组、成员关系、当前组及活动标签自动保存，JSON 备份包含分组；旧版数据自动作为外层标签保留。组内新建标签或 TXT 导入新标签会加入当前组，追加导入到另一组的已有标签后会导航到其所在位置。固定面板时锁定创建、重命名、解散和拖入 / 移出，双击导航、返回与搜索仍可使用。
+
+## 0.7 更新：多选与拖拽排序
+
+点击一条快捷键选中；按住 Shift 点击另一条，选中两条之间的全部词条。Ctrl 点击可增加或取消单独的词条。在已选中的任意一行按住鼠标左键约 0.3 秒后拖动，出现插入提示线，松开即可整组移动；组内保持原来的相对顺序。按 Esc 或拖到列表之外取消。排序立即保存，重启和 JSON 备份均保留。
+
+置顶词条继续优先显示，置顶与普通词条分别拖动排序；混合选择两组时会提示先分开选择。搜索状态下只调整可见结果，隐藏词条在保存列表中的位置保持不变；清空搜索可查看完整列表。切换搜索、标签或固定面板会取消尚未完成的拖动。
+
+拖动期间面板保持展开。固定面板时可选中词条、搜索和切换标签，但无法改动顺序；取消固定后恢复。多选时右键中的逐条编辑、删除和置顶操作暂停，单击选中一行后即可使用。
+
+## 0.6.1 更新：搜索文字显示
+
+修复搜索框重复应用内边距导致输入文字和光标被裁切的问题；中文和字母在四种主题、80%–150% 字号以及固定状态下均可正常显示。更新程序前先从托盘退出旧版，原有数据会继续沿用。
 
 ## 0.6 更新
 
@@ -34,7 +64,7 @@
 
 ## 快捷键与备注
 
-右键快捷键可置顶 / 取消置顶，置顶项在各软件标签页内优先显示，组合前有 `↑` 标记；多个置顶项保留原始顺序。
+右键快捷键可置顶 / 取消置顶，置顶项在各软件标签页内优先显示，组合前有 `↑` 标记；多个置顶项按保存顺序显示，可在置顶组内拖动排序。
 
 新增“备注”列，双击空格或已有内容添加 / 修改，支持多行文字、搜索和完整内容悬停预览。支持 `Win + .` 或粘贴输入 emoji。面板、悬停和编辑窗的显示预览使用内置 Twemoji 17.0.3 彩色 PNG，离线支持 Unicode Emoji 17.0 的全部 3,944 个完整表情和 5,225 种资格 / 显示序列，包括 ZWJ 组合、肤色、旗帜与键帽。文本编辑框的原始字形仍由 Windows 字体绘制，最终显示以其下方彩色预览为准。后续 Unicode 版本的表情需要更新图库；普通文字保持系统字体。
 
@@ -60,9 +90,17 @@
 
 | 操作 | 方法 |
 | --- | --- |
-| 创建软件标签页 | 点击标签栏右侧 `+`，填写名称 |
+| 创建软件标签页 | 外层 `+` → 新建软件标签页；组内 `+` 直接新建 |
+| 创建标签组 | 外层 `+` → 新建标签组，填写名称 |
+| 进入 / 返回标签组 | 双击组标签进入；点击左侧 `‹` 返回外层 |
+| 标签页 / 组排序 | 长按约 0.3 秒，拖到左右插入线后松开；组内也可排序 |
+| 标签拖入组 | 将软件标签拖到组标签上，边框高亮后松开 |
+| 标签移出组 | 右键成员 → 移出标签组；或拖到返回箭头上 |
+| 重命名 / 解散组 | 右键组标签或组内名称；解散将标签移回外层，保留内容 |
 | 重命名、删除标签页 | 右键该标签页 |
 | 添加快捷键 | 点击底部“添加快捷键”，填写组合和功能 |
+| 选择多条快捷键 | 点击一行，再按住 Shift 点击另一行连选；Ctrl 点击可逐条增加 / 取消 |
+| 拖拽排序 | 在选中行上按住左键约 0.3 秒后拖动，按插入提示线松开；Esc 取消；置顶与普通词条分别排序 |
 | 编辑、删除快捷键 | 双击组合或功能格编辑；右键一行管理 |
 | 置顶快捷键 | 右键某一行 → 置顶；再次右键 → 取消置顶 |
 | 添加 / 修改备注 | 双击“备注”列中的空格或文本；空文本可清除备注 |
@@ -84,7 +122,7 @@
 
 右上角向下箭头立即收起，并取消固定。自由悬浮模式保持可见；吸附成功后底部明确显示“已吸附左侧 / 右侧 / 顶部 / 底部”。已吸附时点击面板外立即收起。
 
-编辑弹窗、菜单、标题拖动、缩放，以及搜索框刚发生输入的 1.5 秒内会暂缓自动收起。搜索框单纯保留焦点不会无限阻止收起；点击外部也会解除搜索保护。普通应用上方可以唤出；前台应用占满整块屏幕时停止边缘唤出，托盘仍可主动展开。
+编辑弹窗、菜单、标题拖动、词条拖拽、缩放，以及搜索框刚发生输入的 1.5 秒内会暂缓自动收起。搜索框单纯保留焦点不会无限阻止收起；点击外部也会解除搜索保护。普通应用上方可以唤出；前台应用占满整块屏幕时停止边缘唤出，托盘仍可主动展开。
 
 面板默认 440×660 DIP，可调范围 360–1400 DIP 宽、最高 1600 DIP 高；正常字号最低高度 450 DIP，大字号最低高度相应增加，上限同时受所在屏幕工作区限制。透明度只改变背景，文字与 emoji 保持清晰；设置和编辑弹窗保持不透明。
 
@@ -116,7 +154,7 @@ Ctrl + S@保存 / Save
 
 默认保存在 `%LOCALAPPDATA%\Keyside\`：
 
-- `state.json`：标签页、快捷键、备注、置顶、活动标签和设置；修改后原子保存。
+- `state.json`：标签组、成员关系、当前组、标签栏顺序、标签页、快捷键、备注、置顶、活动标签和设置；修改后原子保存。
 - `state.json.bak`：上一次有效保存；导入备份时保留被替换的数据。
 - `state.json.corrupt-*`：发现损坏时保留的原始文件。
 - `diagnostics.log` / `startup-error.log`：仅在发生问题或导出提示时写入。
@@ -140,13 +178,19 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Verify
 
 构建使用 Windows 自带的 .NET Framework C# 编译器和已安装 WPF 程序集，输出 `dist/`。若系统没有 .NET Framework 4.8，需要先安装该 Windows 运行组件。
 
-验证使用独立的 `qa/data`，不会写入正式数据。0.6 共 200 项通过，记录见 `docs/verification-v0.6.txt`。新增实际 WPF 三列表头拖动 / 保存 / 备注收起恢复 / 固定锁定，四种主题下的背景 alpha 与标题、快捷键及 emoji 不透明检查，专用测试背景上的实际系统合成、模糊与颜色保留、背景刷新 / 文字对比自动切换和实色编辑弹窗；同时保留全部旧功能回归。`docs/preview-v0.6.png` 为专用彩色测试背景上的实际系统合成截图；其余控件截图以 WPF 渲染为主。报告不代表已完成多台电脑的兼容性测试。
+验证使用独立测试数据，不会写入正式数据。0.9.0 共 455 项通过，记录见 `docs/verification-v0.9.0.txt`。新增混合标签栏与组内排序、旧排序字段迁移、插入线和归组中心命中、当前搜索与选择保留、取消、固定锁定、保存恢复及解散后原位展开检查。原有分组、多选词条排序、中文 / 字母搜索实际像素、四种主题、三档字号、表头拖调、Emoji 和玻璃合成检查继续通过。控制器和布局自动验证没有注入系统鼠标；完整 OLE 拖动手势仍需实际鼠标体验确认。`docs/preview-v0.6.png` 为专用彩色测试背景上的实际系统合成截图；其余控件截图以 WPF 渲染为主。报告不代表已完成多台电脑的兼容性测试。
 
 也可用 Visual Studio 的“.NET 桌面开发”工作负载和 4.8 Developer Pack 打开 `ShortcutDock.csproj`。当前机器采用 `build.ps1` 路径完成编译，未验证 Visual Studio 项目构建路径。
 
 ## English quick start
 
+Hold an app tab or group for about 0.3 seconds and drag to a vertical insertion line to reorder it. Top-level tabs and groups can be interleaved; member tabs can be sorted within their group. The center of a highlighted group adds an app tab to it, while its outer quarters are ordering targets. Drag near the bar edges to scroll. Order saves automatically and persists in JSON backups. Escape cancels; panel pinning locks reordering. Ungrouping replaces the group in place with its ordered member tabs.
+
 Unzip the portable package, then double-click `Keyside.exe` (source build: `dist/Keyside.exe`). The app docks to the right of the primary monitor. Hover the thin edge strip to reveal it; leave to hide. Drag its title near any work-area edge to dock, or choose an edge in Settings.
+
+At the top level, + offers New software tab and New tab group. Create a group, double-click to enter and use the back arrow to return. Drop an outside app tab onto a highlighted group to move it inside. Inside a group, + creates a member tab. Right-click a member to move it out, or drag it onto the back arrow. Groups can be renamed or dissolved from their context menu; dissolving keeps all tabs and shortcuts. Groups and current navigation persist in JSON backups. Panel pinning locks group edits while keeping navigation and search available.
+
+Click to select a row, Shift-click to select a range or Ctrl-click to toggle individual entries. Hold a selected row for about 0.3 seconds, drag to the insertion line and release to save the group's order. Escape cancels. Pinned and ordinary entries reorder separately. Filtering only reorders visible matches, preserving hidden entries' saved positions. Panel pinning locks reordering.
 
 Use `+` to create software tabs. Right-click a tab to rename or delete it. The three columns are shortcut combination, action, and notes. Double-click a notes cell to edit, including empty cells. Right-click a shortcut to pin it to the top. Offline color emoji rendering supports all Unicode Emoji 17.0 fully-qualified sequences; the notes editor provides a color preview. Entries are reference text and do not trigger keyboard input in other apps.
 

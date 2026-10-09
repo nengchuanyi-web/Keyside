@@ -12,7 +12,9 @@
 
 Keyside is a local Windows panel for organizing and looking up keyboard shortcuts. Dock it to any screen edge, hover the narrow edge strip to reveal it, and move away or click outside to hide it. Keep a named tab for each app, with shortcuts, actions and your own notes in one place.
 
-> Download `Keyside-v0.6-win-x64.zip`, **extract the entire archive and double-click `Keyside.exe`**. No installer or .NET SDK is required.
+> Download `Keyside-v0.9.0-win-x64.zip`, **extract the entire archive and double-click `Keyside.exe`**. No installer or .NET SDK is required.
+
+v0.9.0 adds ordering for app tabs and groups. Hold about 0.3 seconds, drag to the insertion line and release to save; use a group's highlighted center to add a tab to it. Member tabs can also be reordered. Exit the previous version from the tray before running the update; existing groups, shortcuts and notes are preserved.
 
 ## Preview
 
@@ -32,6 +34,9 @@ Actual v0.6 window captures over dedicated test backgrounds. Transparency affect
 | --- | --- |
 | Edge docking | Dock to the left, right, top or bottom; hover to reveal, leave to hide, click outside to hide immediately. Floating mode is also available. |
 | App tabs | Create and name software tabs; search shortcuts, actions and notes; pin frequently used entries to the top. |
+| Tab groups | Create named groups, double-click to enter and use the back arrow to return. Drag tabs in or out; rename or ungroup while keeping every tab and shortcut. Membership persists. |
+| Tab bar ordering | Mix app tabs and groups in any order. Hold about 0.3 seconds and release at the insertion line; member tabs can be sorted too. Order persists across restarts and backups; panel pinning locks it. |
+| Drag to reorder | Click to select, Shift-click a range or Ctrl-click individual entries. Hold about 0.3 seconds, drag the selected group to the insertion line, and release to save. Pinned and ordinary entries reorder separately; panel pinning locks reordering. |
 | Adjustable columns | Drag dividers for all three columns: shortcut / action / notes. Width proportions persist. Collapse notes without losing their contents. |
 | Emoji notes | Double-click to edit, including empty cells. Multiline notes and hover previews, with offline color rendering for Unicode Emoji 17.0. |
 | Appearance | Glass, light, dark and wallpaper-brightness themes; soft blue, pink or green accents; 0–65% background transparency and 80–150% text size. |
@@ -45,7 +50,7 @@ Entries are reference text. Clicking a shortcut does not send keyboard input to 
 
 1. Download the Windows x64 portable ZIP from [Releases](https://github.com/nengchuanyi-web/Keyside/releases/latest), extract it and run `Keyside.exe`.
 2. Drag the title bar near a screen edge. Hover the thin edge strip to reveal the panel; click outside to hide it.
-3. Use `+` to create app tabs. Double-click cells to edit and right-click entries to manage or pin them. Change appearance in Settings.
+3. Use `+` to create app tabs or groups. Double-click a group to enter, and drop an outside tab onto it to add it. Inside a group, + creates a member tab. Double-click cells to edit and right-click entries to manage or pin them. Change appearance in Settings.
 
 The pin button keeps the panel expanded and locks editing. Click it again to unlock. The system tray can show the panel or exit the app.
 
@@ -84,7 +89,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\package.ps1
 
 Alternatively, double-click `Build.cmd`. Run `dist\Keyside.exe` or `Start.cmd` after building. The build uses the system .NET Framework compiler; no .NET SDK, Node, Python or NuGet is required.
 
-All **200 v0.6 checks passed**, covering docking, outside clicks, persistence, editing locks, column resizing, emoji and native glass composition. See the [verification report](docs/verification-v0.6.txt), [architecture](docs/Architecture.md) and [changelog](CHANGELOG.md). This is not a guarantee of compatibility on every device.
+All **455 v0.9.0 checks passed**, covering mixed tab ordering, member order, insertion markers versus group join targets, persistence and migration, plus group navigation, moving tabs in and out, shortcut reordering, search rendering, editing locks, docking, column resizing, emoji and native glass composition. See the [verification report](docs/verification-v0.9.0.txt), [architecture](docs/Architecture.md) and [changelog](CHANGELOG.md). Checks use isolated data and this app's control events; the full OLE drag gesture still needs hands-on confirmation.
 
 ## Credits and license
 

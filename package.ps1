@@ -11,10 +11,10 @@ New-Item -ItemType Directory -Force -Path $licenseDirectory | Out-Null
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'THIRD-PARTY-NOTICES.md') -Destination (Join-Path $PSScriptRoot 'dist') -Force
 Copy-Item -LiteralPath @((Join-Path $PSScriptRoot 'assets\Twemoji-LICENSE-GRAPHICS.txt'), (Join-Path $PSScriptRoot 'assets\Twemoji-LICENSE.txt'), (Join-Path $PSScriptRoot 'assets\Unicode-LICENSE.txt')) -Destination $licenseDirectory -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'examples\Template.txt') -Destination (Join-Path $PSScriptRoot 'dist\Template.txt') -Force
-$portableZip = Join-Path $deliveryDirectory 'Keyside-v0.6-win-x64.zip'
+$portableZip = Join-Path $deliveryDirectory 'Keyside-v0.9.0-win-x64.zip'
 Compress-Archive -LiteralPath @($binary, (Join-Path $PSScriptRoot 'dist\Keyside.exe.config'), (Join-Path $PSScriptRoot 'dist\README.md'), (Join-Path $PSScriptRoot 'dist\USAGE.zh-CN.md'), (Join-Path $PSScriptRoot 'dist\LICENSE'), (Join-Path $PSScriptRoot 'dist\CHANGELOG.md'), (Join-Path $PSScriptRoot 'dist\THIRD-PARTY-NOTICES.md'), (Join-Path $PSScriptRoot 'dist\Template.txt'), $licenseDirectory) -DestinationPath $portableZip -Force
 $sourceNames = @('src','assets','tools','docs','examples','LICENSE','CHANGELOG.md','THIRD-PARTY-NOTICES.md','README.md','README.en.md','build.ps1','package.ps1','Build.cmd','Start.cmd','Keyside.exe.config','app.manifest','ShortcutDock.csproj','.gitignore')
 $sourcePaths = @($sourceNames | ForEach-Object { Join-Path $PSScriptRoot $_ })
-$sourceZip = Join-Path $deliveryDirectory 'Keyside-v0.6-source.zip'
+$sourceZip = Join-Path $deliveryDirectory 'Keyside-v0.9.0-source.zip'
 Compress-Archive -LiteralPath $sourcePaths -DestinationPath $sourceZip -Force
 Get-Item -LiteralPath $portableZip,$sourceZip | Select-Object Name,Length

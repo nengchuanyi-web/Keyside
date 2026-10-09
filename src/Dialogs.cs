@@ -54,10 +54,18 @@ namespace ShortcutDock
         }
         public static string TabName(MainWindow owner, string current)
         {
+            return NamedItem(owner, current, false);
+        }
+        public static string GroupName(MainWindow owner, string current)
+        {
+            return NamedItem(owner, current, true);
+        }
+        static string NamedItem(MainWindow owner, string current, bool group)
+        {
             if (owner.IsEditingLocked) return null;
-            string title = owner.T[current == null ? "AddTab" : "Rename"];
+            string title = owner.T[group ? (current == null ? "AddGroup" : "RenameGroup") : (current == null ? "AddTab" : "Rename")];
             Window dialog = Create(owner, title, 380); StackPanel body = Body(dialog, title);
-            TextBox name = Field(body, owner.T["Name"], current, 60);
+            TextBox name = Field(body, owner.T[group ? "GroupName" : "Name"], current, 60);
             TextBlock error = new TextBlock { Margin = new Thickness(0, 8, 0, 0), Foreground = Brushes.IndianRed };
             body.Children.Add(error);
             Actions(owner, dialog, body, delegate {

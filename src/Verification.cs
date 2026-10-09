@@ -152,7 +152,128 @@ namespace ShortcutDock
             EmojiText scaledEmoji = new EmojiText { Value = "👨‍👩‍👧‍👦", FontSize = 12 }; scaledEmoji.FontSize = 18;
             Check(((Image)scaledEmoji.Inlines.OfType<InlineUIContainer>().Single().Child).Height == 27, "emoji scales with text while preserving a whole ZWJ sequence");
             Check(BrandIcon.Source.PixelWidth == 200 && BrandIcon.Source.PixelHeight == 200, "uploaded Xiaohongshu icon decodes from the embedded image");
+            VerifyRowOrderingLogic(store);
+            VerifyGroupLogic(store);
+            VerifyTabOrderingLogic(store);
             store.Save(AppState.CreateDefault());
+        }
+        static void VerifyTabOrderingLogic(StateStore store)
+        {
+            AppState state = AppState.CreateDefault();
+            TabGroup design = new TabGroup { Name = "设计" }, work = new TabGroup { Name = "工作" };
+            SoftwareTab drawing = new SoftwareTab { Name = "绘图", GroupId = design.Id };
+            SoftwareTab notes = new SoftwareTab { Name = "笔记", GroupId = design.Id };
+            SoftwareTab other = new SoftwareTab { Name = "其他", GroupId = work.Id };
+            notes.Shortcuts.Add(new ShortcutEntry("N", "记录") { Notes = "🧑🏽‍💻", Pinned = true });
+            state.Groups.AddRange(new[] { design, work }); state.Tabs.AddRange(new[] { drawing, notes, other });
+            state.RootOrder = null; state.Validate();
+            string first = TabOrdering.TabKey(state.Tabs[0].Id), second = TabOrdering.TabKey(state.Tabs[1].Id);
+            string designKey = TabOrdering.GroupKey(design.Id), workKey = TabOrdering.GroupKey(work.Id);
+            Check(TabOrdering.Visible(state).SequenceEqual(new[] { designKey, workKey, first, second }),
+                "missing root order preserves legacy groups-first layout and member source order");
+            store.Save(state);
+            string legacy = Regex.Replace(File.ReadAllText(store.StatePath), "\"RootOrder\":\\[[^\\]]*\\],?", "");
+            string path = Path.Combine(store.DirectoryPath, "legacy-v0.8.json"); File.WriteAllText(path, legacy);
+            AppState migrated = StateStore.Read(path);
+            Check(migrated.RootOrder.SequenceEqual(state.RootOrder) && migrated.Tabs.Count == 5 && migrated.Tabs[3].Shortcuts[0].Notes == "🧑🏽‍💻",
+                "v0.8 JSON without RootOrder migrates without losing group members or emoji");
+            Check(TabOrdering.Move(state, designKey, 3) && state.RootOrder.SequenceEqual(new[] { workKey, first, designKey, second }),
+                "root group moves between software tabs in one mixed order");
+            Check(TabOrdering.Move(state, second, 0) && state.RootOrder.SequenceEqual(new[] { second, workKey, first, designKey }),
+                "root software tab moves before groups");
+            Check(TabOrdering.Move(state, designKey, 1) && state.RootOrder.SequenceEqual(new[] { second, designKey, workKey, first }),
+                "group moves back to an earlier root position");
+            List<string> before = state.RootOrder.ToList();
+            Check(!TabOrdering.Move(state, second, 0) && !TabOrdering.Move(state, second, 1) &&
+                !TabOrdering.Move(state, first, -1) && !TabOrdering.Move(state, first, 5) && !TabOrdering.Move(state, "missing", 0) &&
+                !TabOrdering.Move(state, TabOrdering.TabKey(notes.Id), 0) && state.RootOrder.SequenceEqual(before),
+                "self drops, invalid indices and hidden members leave root order unchanged");
+            state.ActiveTabId = "missing"; state.Validate();
+            Check(state.ActiveTabId == state.Tabs[1].Id, "active-tab recovery follows saved mixed root order");
+            state.ActiveGroupId = design.Id; state.Validate();
+            List<SoftwareTab> original = state.Tabs.ToList(); string active = state.ActiveTabId;
+            Check(TabOrdering.Move(state, TabOrdering.TabKey(notes.Id), 0) && state.Tabs[2] == notes && state.Tabs[3] == drawing &&
+                state.Tabs[0] == original[0] && state.Tabs[1] == original[1] && state.Tabs[4] == other,
+                "group member ordering replaces only that group's slots");
+            Check(state.RootOrder.SequenceEqual(before) && state.ActiveTabId == active && notes.GroupId == design.Id && notes.Shortcuts[0].Pinned,
+                "member sorting retains root order, current tab, membership, notes and pins");
+            Check(!TabOrdering.Move(state, first, 0) && !TabOrdering.Move(state, workKey, 0), "group scope rejects outside software and group ordering");
+            store.Save(state); AppState read = StateStore.Read(store.StatePath);
+            Check(read.RootOrder.SequenceEqual(before) && read.ActiveGroupId == design.Id && read.ActiveTabId == active &&
+                TabOrdering.Visible(read).SequenceEqual(new[] { TabOrdering.TabKey(notes.Id), TabOrdering.TabKey(drawing.Id) }),
+                "root mixed order and group member order survive JSON save and reload");
+            state.ActiveGroupId = null;
+            state.RootOrder = new List<string> { second, second, "missing", null, TabOrdering.TabKey(notes.Id), first };
+            state.Validate();
+            Check(state.RootOrder.SequenceEqual(new[] { second, first, designKey, workKey }),
+                "root normalization repairs duplicates, stale keys and hidden members while retaining user order");
+            SoftwareTab added = new SoftwareTab { Name = "新增" }; state.Tabs.Add(added); state.Validate();
+            Check(state.RootOrder.Last() == TabOrdering.TabKey(added.Id), "new root items append after the existing saved order");
+            state.Groups.Remove(work); state.Validate();
+            Check(!state.RootOrder.Contains(workKey) && state.RootOrder.Last() == TabOrdering.TabKey(other.Id) && other.GroupId == null,
+                "deleted group keys are pruned and recovered members append without data loss");
+        }
+        static void VerifyGroupLogic(StateStore store)
+        {
+            AppState state = AppState.CreateDefault();
+            store.Save(state);
+            string legacy = File.ReadAllText(store.StatePath).Replace(",\"Groups\":[]", "").Replace("\"Groups\":[],", "");
+            string path = Path.Combine(store.DirectoryPath, "legacy-v0.7.json"); File.WriteAllText(path, legacy);
+            AppState older = StateStore.Read(path);
+            Check(older.Groups.Count == 0 && older.ActiveGroupId == null && older.Tabs.All(tab => tab.GroupId == null) &&
+                older.Tabs[0].Shortcuts.Count == 12, "old files without group fields retain all tabs and shortcuts at the top level");
+            TabGroup group = new TabGroup { Name = "设计 / Design" }; state.Groups.Add(group);
+            state.Tabs[1].GroupId = group.Id; state.ActiveGroupId = group.Id; state.Validate();
+            Check(state.ActiveTabId == state.Tabs[1].Id, "entering a group selects an existing member rather than an outside tab");
+            state.Tabs[1].Shortcuts[0].Notes = "组内备注 🧑🏽‍💻"; state.Tabs[1].Shortcuts[0].Pinned = true;
+            store.Save(state); AppState read = StateStore.Read(store.StatePath);
+            Check(read.Groups[0].Id == group.Id && read.Groups[0].Name == group.Name && read.ActiveGroupId == group.Id &&
+                read.Tabs[1].GroupId == group.Id && read.Tabs[1].Shortcuts[0].Notes == "组内备注 🧑🏽‍💻" &&
+                read.Tabs[1].Shortcuts[0].Pinned, "group membership, navigation, IDs, pins and emoji survive JSON round trip");
+            TabGroup empty = new TabGroup { Name = "Empty" }; state.Groups.Add(empty); state.ActiveGroupId = empty.Id; state.Validate();
+            Check(state.ActiveTabId == null && state.Tabs.Count == 2, "empty group has no active tab and keeps outside tabs intact");
+            state.ActiveGroupId = null; state.Validate();
+            Check(state.ActiveTabId == state.Tabs[0].Id, "returning to the top level chooses an ungrouped tab");
+            state.Groups.Remove(group); state.Tabs[0].GroupId = "missing"; state.ActiveGroupId = "missing"; state.Validate();
+            Check(state.Tabs.All(tab => tab.GroupId == null) && state.ActiveGroupId == null && state.Tabs[1].Shortcuts[0].Pinned,
+                "orphaned group references recover to the top level without losing content");
+            state.Groups.Add(new TabGroup { Id = empty.Id, Name = "Duplicate ID" }); state.Validate();
+            Check(state.Groups.Select(item => item.Id).Distinct().Count() == 2, "duplicate group IDs are repaired");
+            bool rejected = false; state.Groups.Add(new TabGroup { Name = new string('x', 61) });
+            try { state.Validate(); } catch (InvalidDataException) { rejected = true; }
+            Check(rejected, "group names over 60 characters are rejected before saving");
+            state = AppState.CreateDefault(); state.Groups = Enumerable.Range(0, 201).Select(i => new TabGroup { Name = i.ToString() }).ToList();
+            rejected = false; try { state.Validate(); } catch (InvalidDataException) { rejected = true; }
+            Check(rejected, "group count limit is enforced independently of the tab count");
+        }
+        static SoftwareTab OrderFixture()
+        {
+            SoftwareTab tab = new SoftwareTab { Name = "Order test" };
+            foreach (string key in new[] { "A", "B", "C", "D", "E" }) tab.Shortcuts.Add(new ShortcutEntry(key, key) { Notes = "备注 🎉 " + key });
+            return tab;
+        }
+        static string OrderKeys(SoftwareTab tab) { return String.Join("", tab.Shortcuts.Select(row => row.Keys)); }
+        static void VerifyRowOrderingLogic(StateStore store)
+        {
+            SoftwareTab tab = OrderFixture();
+            string[] ids = tab.Shortcuts.Skip(1).Take(2).Select(row => row.Id).ToArray();
+            Check(RowOrdering.Move(tab, tab.Shortcuts.ToList(), ids, 5) && OrderKeys(tab) == "ADEBC", "block moves down without reversing selected entries");
+            Check(RowOrdering.Move(tab, tab.Shortcuts.ToList(), ids, 1) && OrderKeys(tab) == "ABCDE", "block moves back up to an insertion boundary");
+            ids = new[] { tab.Shortcuts[2].Id, tab.Shortcuts[0].Id };
+            Check(RowOrdering.Move(tab, tab.Shortcuts.ToList(), ids, 5) && OrderKeys(tab) == "BDEAC", "non-contiguous selection moves in displayed order");
+            tab = OrderFixture();
+            Check(!RowOrdering.Move(tab, tab.Shortcuts.ToList(), tab.Shortcuts.Skip(1).Take(2).Select(row => row.Id), 2) && OrderKeys(tab) == "ABCDE", "drop within the original block does not change order");
+            List<ShortcutEntry> filtered = new List<ShortcutEntry> { tab.Shortcuts[1], tab.Shortcuts[3] };
+            Check(RowOrdering.Move(tab, filtered, new[] { filtered[1].Id }, 0) && OrderKeys(tab) == "ADCBE", "filtered reorder preserves the positions of hidden entries");
+            tab = OrderFixture(); tab.Shortcuts[0].Pinned = tab.Shortcuts[4].Pinned = true;
+            List<ShortcutEntry> visible = tab.Shortcuts.OrderByDescending(row => row.Pinned).ToList();
+            Check(RowOrdering.Move(tab, visible, new[] { tab.Shortcuts[4].Id }, 0) && OrderKeys(tab) == "EBCDA" && tab.Shortcuts[0].Pinned && tab.Shortcuts[4].Pinned, "pinned group can be reordered without changing pin flags");
+            visible = tab.Shortcuts.OrderByDescending(row => row.Pinned).ToList();
+            Check(!RowOrdering.Move(tab, visible, new[] { tab.Shortcuts[0].Id, tab.Shortcuts[1].Id }, 3) && OrderKeys(tab) == "EBCDA", "mixed pin groups are rejected without mutation");
+            Check(!RowOrdering.Move(tab, visible, new[] { "foreign-id" }, 0) && !RowOrdering.Move(tab, visible, new[] { tab.Shortcuts[0].Id }, -1), "invalid selections and insertion indices leave order unchanged");
+            AppState state = AppState.CreateDefault(); state.Tabs.Add(tab); store.Save(state);
+            SoftwareTab reloaded = StateStore.Read(store.StatePath).Tabs.Last();
+            Check(OrderKeys(reloaded) == "EBCDA" && reloaded.Shortcuts.Select(row => row.Id).SequenceEqual(tab.Shortcuts.Select(row => row.Id)) && reloaded.Shortcuts.All(row => row.Notes.Contains("🎉")), "manual order, IDs, pin flags and emoji notes survive JSON persistence");
         }
         static void Capture(Window window, string path)
         {
@@ -185,6 +306,384 @@ namespace ShortcutDock
             int width = Math.Min((int)Math.Ceiling(text.ActualWidth), bitmap.PixelWidth - x), height = Math.Min((int)Math.Ceiling(text.ActualHeight), bitmap.PixelHeight - y);
             byte[] pixels = new byte[width * height * 4]; bitmap.CopyPixels(new Int32Rect(x, y, width, height), pixels, width * 4, 0);
             byte alpha = 0; for (int i = 3; i < pixels.Length; i += 4) alpha = Math.Max(alpha, pixels[i]); return alpha;
+        }
+        static byte[] SearchPixels(TextBox search)
+        {
+            search.UpdateLayout();
+            DrawingVisual visual = new DrawingVisual();
+            using (DrawingContext drawing = visual.RenderOpen())
+                drawing.DrawRectangle(new VisualBrush(search), null, new Rect(0, 0, search.ActualWidth, search.ActualHeight));
+            int width = (int)Math.Ceiling(search.ActualWidth), height = (int)Math.Ceiling(search.ActualHeight);
+            RenderTargetBitmap bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32); bitmap.Render(visual);
+            byte[] pixels = new byte[width * height * 4]; bitmap.CopyPixels(pixels, width * 4, 0); return pixels;
+        }
+        static void VerifySearchRendering(MainWindow window, string output)
+        {
+            // Check actual rendered glyphs, rather than only Text or filtered rows:
+            // both continued to work while the old template clipped all input.
+            TextBox search = Controls<TextBox>(window).Single(t => t.Name == "ShortcutSearch");
+            foreach (string theme in new[] { "Light", "Dark", "Glass", "Auto" })
+            foreach (double scale in new[] { 0.8, 1.0, 1.5 })
+            foreach (bool pinned in new[] { false, true })
+            {
+                if (window.State.Pinned != pinned) window.TogglePanelPin();
+                window.State.Theme = theme; window.State.FontScale = scale;
+                FontSizing.Apply(window); window.ApplyTheme(); window.UpdateLayout();
+                foreach (string query in new[] { "新建", "Ctrl" })
+                {
+                    search.Text = ""; byte[] blank = SearchPixels(search);
+                    search.Text = query; byte[] typed = SearchPixels(search);
+                    ScrollViewer host = (ScrollViewer)search.Template.FindName("PART_ContentHost", search);
+                    Rect character = search.GetRectFromCharacterIndex(0);
+                    string scenario = theme + " / " + scale + " / pinned=" + pinned + " / " + query;
+                    Check(host.ViewportHeight + 0.5 >= character.Height && character.Height > 0,
+                        "search viewport fits a complete input line / " + scenario);
+                    int visiblePixels = 0;
+                    for (int i = 0; i < typed.Length; i += 4)
+                        if (Math.Abs(typed[i] - blank[i]) + Math.Abs(typed[i + 1] - blank[i + 1]) + Math.Abs(typed[i + 2] - blank[i + 2]) > 40) visiblePixels++;
+                    Check(visiblePixels > 40, "Chinese / Latin search glyphs actually render / " + scenario + " (pixels=" + visiblePixels + ")");
+                    Check(search.IsEnabled && !search.IsReadOnly && window.ShortcutGrid.Items.Count > 0,
+                        "search stays editable and filters matching shortcuts / " + scenario);
+                    if (theme == "Light" && scale == 1 && pinned && query == "新建")
+                        Capture(window, Path.Combine(output, "search-chinese-pinned.png"));
+                    if (theme == "Glass" && scale == 1 && pinned && query == "Ctrl")
+                        Capture(window, Path.Combine(output, "search-latin-glass-pinned.png"));
+                }
+            }
+            if (window.State.Pinned) window.TogglePanelPin();
+            search.Text = ""; window.State.Theme = "Glass"; window.State.FontScale = 1;
+            FontSizing.Apply(window); window.ApplyTheme(); window.UpdateLayout();
+        }
+        static void VerifyRowReorder(MainWindow window, string output)
+        {
+            // Keep this control capture deterministic: the preceding synchronous
+            // search checks do not advance the opening animation's render clock.
+            window.State.Theme = "Light"; window.ApplyTheme();
+            window.Surface.BeginAnimation(UIElement.OpacityProperty, null); window.Surface.Opacity = 1;
+            window.Surface.RenderTransform = Transform.Identity;
+            SoftwareTab tab = window.ActiveTab(); List<ShortcutEntry> original = tab.Shortcuts.ToList();
+            DataGrid grid = window.ShortcutGrid; RowReorder controller = window.RowOrder;
+            TextBox search = Controls<TextBox>(window).Single(box => box.Name == "ShortcutSearch");
+            Check(grid.SelectionMode == DataGridSelectionMode.Extended && grid.SelectionUnit == DataGridSelectionUnit.FullRow, "shortcut rows support extended full-row selection");
+            controller.Select(original[1], System.Windows.Input.ModifierKeys.None);
+            controller.Select(original[3], System.Windows.Input.ModifierKeys.Shift);
+            Check(grid.SelectedItems.Count == 3 && original.Skip(1).Take(3).All(row => grid.SelectedItems.Contains(row)), "Shift-click selects the full anchored range");
+            controller.Select(original[5], System.Windows.Input.ModifierKeys.Control);
+            Check(grid.SelectedItems.Count == 4 && grid.SelectedItems.Contains(original[5]), "Ctrl-click adds a non-contiguous row");
+            controller.Select(original[2], System.Windows.Input.ModifierKeys.Shift);
+            Check(grid.SelectedItems.Count == 4 && original.Skip(2).Take(4).All(row => grid.SelectedItems.Contains(row)), "reverse Shift-click range uses the latest selection anchor");
+            controller.Select(original[1], System.Windows.Input.ModifierKeys.None); controller.Select(original[3], System.Windows.Input.ModifierKeys.Shift);
+            grid.UpdateLayout();
+            DataGridRow pressed = (DataGridRow)grid.ItemContainerGenerator.ContainerFromItem(original[2]);
+            int depth = window.Dock.InteractionDepth;
+            System.Windows.Input.MouseButtonEventArgs press = new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left) { RoutedEvent = System.Windows.Input.Mouse.PreviewMouseDownEvent };
+            pressed.RaiseEvent(press);
+            Check(grid.SelectedItems.Count == 3 && window.Dock.InteractionDepth == depth + 1 && window.IsMouseCaptured, "routed press on a selected row retains the group and prevents auto-hide");
+            window.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left) { RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent });
+            Check(grid.SelectedItems.Count == 1 && grid.SelectedItem == original[2] && !controller.IsInteracting && window.Dock.InteractionDepth == depth, "plain click release selects one row and releases the interaction guard");
+            controller.Select(original[1], System.Windows.Input.ModifierKeys.None); controller.Select(original[3], System.Windows.Input.ModifierKeys.Shift);
+            pressed.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left) { RoutedEvent = System.Windows.Input.Mouse.PreviewMouseDownEvent });
+            controller.Cancel();
+            Check(window.Dock.InteractionDepth == depth && !controller.IsInteracting && !window.IsMouseCaptured, "cancel releases mouse capture and the dock interaction guard");
+            Check(!RowReorder.Ready(200, new Point(), new Point(20, 20)) && !RowReorder.Ready(400, new Point(), new Point()) && RowReorder.Ready(400, new Point(), new Point(20, 20)), "drag requires both a long press and actual pointer movement");
+            RowDragData payload = controller.CreateData();
+            DataGridRow target = (DataGridRow)grid.ItemContainerGenerator.ContainerFromItem(original[4]);
+            int insertion; double lineY;
+            Point before = target.TranslatePoint(new Point(12, target.ActualHeight * 0.25), grid);
+            Point after = target.TranslatePoint(new Point(12, target.ActualHeight * 0.75), grid);
+            Check(controller.Target(before, payload, out insertion, out lineY) && insertion == 4 &&
+                controller.Target(after, payload, out insertion, out lineY) && insertion == 5, "real row hit testing resolves insertion before and after the pointed row");
+            controller.ShowMarker(lineY); Capture(window, Path.Combine(output, "multi-select-insertion-marker.png"));
+            AdornerLayer layer = AdornerLayer.GetAdornerLayer(grid);
+            Check(layer != null && layer.GetAdorners(grid) != null && layer.GetAdorners(grid).Any(item => item.GetType().Name == "RowInsertionAdorner"), "drag insertion boundary is drawn over the actual table");
+            Check(controller.ApplyDrop(payload, original.Count), "drop commits a multi-row move through the live controller");
+            List<ShortcutEntry> expected = original.Take(1).Concat(original.Skip(4)).Concat(original.Skip(1).Take(3)).ToList();
+            Check(tab.Shortcuts.SequenceEqual(expected) && grid.Items.OfType<ShortcutEntry>().SequenceEqual(expected) && grid.SelectedItems.Count == 3, "table and stored order update together while moved rows remain selected");
+            Check(StateStore.Read(window.Store.StatePath).Tabs[0].Shortcuts.Select(row => row.Id).SequenceEqual(expected.Select(row => row.Id)), "drag order is saved immediately for restart and backup");
+            Check(controller.ApplyDrop(controller.CreateData(), 1) && tab.Shortcuts.SequenceEqual(original), "same group can be dragged upward again");
+            payload = controller.CreateData(); controller.Cancel();
+            Check(!controller.ApplyDrop(payload, original.Count) && tab.Shortcuts.SequenceEqual(original), "cancelled drag cannot later commit a stale drop");
+            Check(!controller.ApplyDrop(new RowDragData { Source = null, TabId = tab.Id, Query = "", Ids = payload.Ids }, 0), "external drag data cannot modify shortcut order");
+            grid.ContextMenu.IsOpen = true;
+            Check(grid.ContextMenu.Items.OfType<MenuItem>().All(item => !item.IsEnabled), "multi-selection disables ambiguous single-row editing and deletion");
+            grid.ContextMenu.IsOpen = false;
+            search.Text = "Ctrl"; window.UpdateLayout();
+            List<ShortcutEntry> filtered = grid.Items.OfType<ShortcutEntry>().ToList();
+            controller.Select(filtered.Last(), System.Windows.Input.ModifierKeys.None); RowDragData filteredPayload = controller.CreateData();
+            List<ShortcutEntry> hidden = original.Where(row => !filtered.Contains(row)).ToList();
+            Check(controller.ApplyDrop(filteredPayload, 0) && grid.Items[0] == filtered.Last() && hidden.All(row => tab.Shortcuts.IndexOf(row) == original.IndexOf(row)), "search-filtered drag moves matches while hidden rows stay put");
+            search.Text = "not-a-match";
+            Check(!controller.ApplyDrop(filteredPayload, 0), "changing the search query invalidates an outstanding drag");
+            search.Text = ""; tab.Shortcuts = original.ToList(); window.RenderRows();
+            controller.Select(original[2], System.Windows.Input.ModifierKeys.None); payload = controller.CreateData();
+            window.State.ActiveTabId = window.State.Tabs[1].Id;
+            Check(!controller.ApplyDrop(payload, 0), "switching software tabs rejects stale drag data");
+            window.State.ActiveTabId = tab.Id;
+            controller.Select(original[2], System.Windows.Input.ModifierKeys.None);
+            grid.UpdateLayout();
+            pressed = (DataGridRow)grid.ItemContainerGenerator.ContainerFromItem(original[2]);
+            pressed.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left) { RoutedEvent = System.Windows.Input.Mouse.PreviewMouseDownEvent });
+            window.TogglePanelPin(); string saved = File.ReadAllText(window.Store.StatePath);
+            Check(!controller.IsInteracting && !window.IsMouseCaptured && window.Dock.InteractionDepth == depth, "pinning during a pending press cancels capture and releases the dock guard");
+            Check(!controller.ApplyDrop(payload, 0) && !window.ReorderRows(payload.Ids, 0) && File.ReadAllText(window.Store.StatePath) == saved, "pinned panel rejects row sorting without changing saved data");
+            window.TogglePanelPin();
+            original[0].Pinned = true; window.RenderRows(); controller.Select(original[0], System.Windows.Input.ModifierKeys.None); controller.Select(original[1], System.Windows.Input.ModifierKeys.Control);
+            Check(!controller.ApplyDrop(controller.CreateData(), 5) && tab.Shortcuts.SequenceEqual(original), "dragging a selection across both pin groups preserves the existing pin behavior");
+            original[0].Pinned = false; window.RenderRows(); grid.SelectedItems.Clear(); controller.Cancel(); window.Save();
+        }
+        static void OpenGroup(Button button)
+        {
+            button.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount,
+                System.Windows.Input.MouseButton.Left) { RoutedEvent = Control.MouseDoubleClickEvent });
+        }
+        static async System.Threading.Tasks.Task VerifyTabGroups(MainWindow window, string output)
+        {
+            List<SoftwareTab> original = window.State.Tabs.ToList();
+            Button plus = Controls<Button>(window).Single(button => button.Name == "AddSoftwareTab");
+            plus.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(plus.ContextMenu.IsOpen && plus.ContextMenu.Items.OfType<MenuItem>().Select(item => item.Header.ToString()).SequenceEqual(new[] { window.T["AddTab"], window.T["AddGroup"] }),
+                "tab bar plus opens separate create-tab and create-group choices");
+            plus.ContextMenu.IsOpen = false;
+            CompleteDialog(window, new[] { "设计" }, Path.Combine(output, "group-create-dialog.png"));
+            ((MenuItem)plus.ContextMenu.Items[1]).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            TabGroup group = window.State.Groups.Single();
+            Check(group.Name == "设计" && StateStore.Read(window.Store.StatePath).Groups.Single().Id == group.Id,
+                "group is created through its real naming dialog and persisted");
+            CancelDialog(window); window.AddGroup();
+            Check(window.State.Groups.Count == 1, "cancelling group creation leaves existing groups unchanged");
+            CompleteDialog(window, new[] { "空组" }, null); window.AddGroup();
+            TabGroup empty = window.State.Groups.Last();
+            OpenGroup(Controls<Button>(window).Single(button => button.Name == "TabGroup" && (button.Tag as string) == empty.Id));
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(window.State.ActiveGroupId == empty.Id && window.ActiveTab() == null && window.ShortcutGrid.Items.Count == 0 &&
+                Controls<TextBlock>(window).Any(block => block.Text == window.T["EmptyGroup"]), "empty group displays its own add-tab guidance");
+            Controls<Button>(window).Single(button => button.Name == "BackToTabs").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Button folder = Controls<Button>(window).Single(button => button.Name == "TabGroup" && (button.Tag as string) == group.Id);
+            folder.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(window.State.ActiveGroupId == null, "single-click on a group does not navigate; opening requires double-click");
+            TabGroupDrag controller = window.GroupDrag;
+            Button dragged = Controls<Button>(window).Single(button => button.Name == "SoftwareTab" && (button.Tag as string) == original[1].Id);
+            int depth = window.Dock.InteractionDepth; bool guarded = false;
+            System.Windows.Input.MouseButtonEventHandler observe = delegate { guarded = controller.IsInteracting && window.Dock.InteractionDepth == depth + 1; };
+            dragged.PreviewMouseLeftButtonDown += observe;
+            dragged.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount,
+                System.Windows.Input.MouseButton.Left) { RoutedEvent = System.Windows.Input.Mouse.PreviewMouseDownEvent });
+            dragged.PreviewMouseLeftButtonDown -= observe; controller.Cancel();
+            Check(guarded && !controller.IsInteracting && window.Dock.InteractionDepth == depth,
+                "wired tab press blocks auto-hide and cancellation releases the dock guard");
+            TabDragData payload = controller.CreateData(original[1].Id);
+            Check(folder.AllowDrop && controller.CanDrop(payload, group.Id) && !controller.CanDrop(payload, "missing") &&
+                !controller.CanDrop(new TabDragData { Source = null, TabId = original[1].Id }, group.Id), "group target accepts only valid same-controller tab drag data");
+            controller.Highlight(folder); window.UpdateLayout(); Capture(window, Path.Combine(output, "group-drop-target.png"));
+            Check(Object.ReferenceEquals(folder.BorderBrush, window.Resources["AccentBrush"]), "valid group drop target uses the visible theme accent border");
+            List<ShortcutEntry> contents = original[1].Shortcuts.ToList();
+            Check(controller.ApplyDrop(payload, group.Id) && original[1].GroupId == group.Id && original[1].Shortcuts.SequenceEqual(contents),
+                "dropping an outside tab into a group moves membership without recreating shortcuts");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(Controls<Button>(window).Where(button => button.Name == "SoftwareTab").Select(button => button.Tag as string).SequenceEqual(new[] { original[0].Id }) &&
+                StateStore.Read(window.Store.StatePath).Tabs[1].GroupId == group.Id, "grouped tab leaves the root bar and membership is saved immediately");
+            Check(!controller.ApplyDrop(payload, empty.Id) && !window.MoveTabToGroup(original[1].Id, group.Id), "disposed drag controller and duplicate group moves cannot mutate tabs");
+            folder = Controls<Button>(window).Single(button => button.Name == "TabGroup" && (button.Tag as string) == group.Id);
+            OpenGroup(folder); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(window.State.ActiveGroupId == group.Id && window.ActiveTab() == original[1] && window.ShortcutGrid.Items.Count == contents.Count &&
+                Controls<Button>(window).Count(button => button.Name == "SoftwareTab") == 1 &&
+                Controls<Button>(window).Any(button => button.Name == "BackToTabs"), "wired group double-click opens only member tabs with a back control");
+            Capture(window, Path.Combine(output, "group-open.png"));
+            AppState savedGroup = StateStore.Read(window.Store.StatePath);
+            Check(savedGroup.ActiveGroupId == group.Id && savedGroup.ActiveTabId == original[1].Id, "current group and active member restore from saved data");
+            TextBox search = Controls<TextBox>(window).Single(box => box.Name == "ShortcutSearch"); search.Text = "侧栏";
+            Check(window.ShortcutGrid.Items.Count == 1 && search.GetRectFromCharacterIndex(0).Height > 0, "search continues to filter the active group member");
+            search.Text = "";
+            CompleteDialog(window, new[] { "组内新建" }, null);
+            Controls<Button>(window).Single(button => button.Name == "AddSoftwareTab").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            SoftwareTab added = window.ActiveTab();
+            Check(added.GroupId == group.Id && added.Name == "组内新建" && StateStore.Read(window.Store.StatePath).Tabs.Last().GroupId == group.Id,
+                "plus inside a group creates a member tab through the existing dialog");
+            window.CommitTextImport(TextImport.Parse("G@组内快捷键"), new TxtImportChoice { Name = "组内 TXT" });
+            SoftwareTab imported = window.ActiveTab();
+            Check(imported.GroupId == group.Id && imported.Shortcuts.Count == 1, "new TXT imports inherit the current group");
+            window.CommitTextImport(TextImport.Parse("G2@追加"), new TxtImportChoice { TabId = original[0].Id });
+            ShortcutEntry appended = original[0].Shortcuts.Last();
+            Check(window.State.ActiveGroupId == null && window.ActiveTab() == original[0], "TXT append to an outside tab navigates to that tab's scope");
+            original[0].Shortcuts.Remove(appended); window.RenderRows();
+            controller = window.GroupDrag; payload = controller.CreateData(original[0].Id); controller.Cancel();
+            Check(!controller.ApplyDrop(payload, group.Id), "cancelled tab drag cannot later move a tab");
+            window.TogglePanelPin(); string locked = File.ReadAllText(window.Store.StatePath);
+            window.AddGroup(); window.RenameGroup(group);
+            Check(!window.MoveTabToGroup(original[0].Id, group.Id) && !window.Ungroup(group) && Dialogs.GroupName(window, null) == null &&
+                File.ReadAllText(window.Store.StatePath) == locked, "fixed panel rejects group edits, moves and naming dialogs without changing saved data");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            folder = Controls<Button>(window).Single(button => button.Name == "TabGroup" && (button.Tag as string) == group.Id);
+            Check(folder.ContextMenu.Items.OfType<MenuItem>().All(item => !item.IsEnabled) &&
+                !Controls<Button>(window).Single(button => button.Name == "AddSoftwareTab").IsEnabled, "fixed panel disables group management and creation controls");
+            OpenGroup(folder); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(window.IsEditingLocked && window.State.ActiveGroupId == group.Id && window.ActiveTab() == original[1], "fixed panel still allows group navigation");
+            controller = window.GroupDrag; payload = controller.CreateData(original[1].Id);
+            Check(!controller.ApplyDrop(payload, null), "fixed panel also rejects drag-out through the back target");
+            Controls<Button>(window).Single(button => button.Name == "BackToTabs").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.TogglePanelPin(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            folder = Controls<Button>(window).Single(button => button.Name == "TabGroup" && (button.Tag as string) == group.Id);
+            CompleteDialog(window, new[] { "设计工具" }, null);
+            ((MenuItem)folder.ContextMenu.Items[0]).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Check(group.Name == "设计工具" && StateStore.Read(window.Store.StatePath).Groups[0].Name == group.Name,
+                "group context rename updates its caption and saved name");
+            OpenGroup(Controls<Button>(window).Single(button => button.Name == "TabGroup" && (button.Tag as string) == group.Id));
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Button member = Controls<Button>(window).Single(button => button.Name == "SoftwareTab" && (button.Tag as string) == original[1].Id);
+            member.ContextMenu.Items.OfType<MenuItem>().Single(item => item.Header.ToString() == window.T["RemoveFromGroup"]).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(original[1].GroupId == null && window.State.ActiveGroupId == group.Id && window.ActiveTab() == added,
+                "member context action moves the tab out and selects a remaining group member");
+            controller = window.GroupDrag; payload = controller.CreateData(imported.Id);
+            Check(controller.CanDrop(payload, null) && Controls<Button>(window).Single(button => button.Name == "BackToTabs").AllowDrop &&
+                controller.ApplyDrop(payload, null) && imported.GroupId == null, "dragging a group member onto the back control returns it to the root");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            window.State.Language = "en"; window.Rebuild(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(Controls<Button>(window).Single(button => button.Name == "BackToTabs").ToolTip.ToString() == "Back to top-level tabs" &&
+                Controls<Button>(window).Single(button => button.Name == "CurrentTabGroup").ContextMenu.Items.OfType<MenuItem>().First().Header.ToString() == "Rename group",
+                "group navigation and management use English resources");
+            Capture(window, Path.Combine(output, "en-group-open.png"));
+            Check(window.Ungroup(group) && added.GroupId == null && window.State.ActiveGroupId == null && window.State.Tabs.Count == 4 &&
+                original[1].Shortcuts.SequenceEqual(contents), "dissolving a group returns member tabs to the root without deleting their contents");
+            window.Ungroup(empty); window.State.Tabs = original; window.State.ActiveTabId = original[0].Id;
+            window.State.Language = "zh"; window.State.Theme = "Light"; window.Rebuild(); window.Save();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(window.State.Groups.Count == 0 && window.Dock.InteractionDepth == 0, "group workflow releases interaction guards and restores the isolated fixture");
+        }
+        static async System.Threading.Tasks.Task VerifyTabBarOrdering(MainWindow window, string output)
+        {
+            List<SoftwareTab> original = window.State.Tabs.ToList(); List<string> originalOrder = window.State.RootOrder.ToList();
+            string originalActive = window.State.ActiveTabId; double width = window.State.PanelWidth, height = window.State.PanelHeight;
+            TabGroup design = new TabGroup { Name = "设计" }, work = new TabGroup { Name = "工作" };
+            SoftwareTab drawing = new SoftwareTab { Name = "绘图", GroupId = design.Id };
+            SoftwareTab notes = new SoftwareTab { Name = "笔记", GroupId = design.Id };
+            SoftwareTab other = new SoftwareTab { Name = "其他", GroupId = work.Id };
+            drawing.Shortcuts.Add(new ShortcutEntry("D", "绘图")); notes.Shortcuts.Add(new ShortcutEntry("N", "笔记") { Notes = "🧑🏽‍💻" });
+            window.State.Groups.AddRange(new[] { design, work }); window.State.Tabs.AddRange(new[] { drawing, notes, other });
+            string first = TabOrdering.TabKey(original[0].Id), second = TabOrdering.TabKey(original[1].Id);
+            string designKey = TabOrdering.GroupKey(design.Id), workKey = TabOrdering.GroupKey(work.Id);
+            window.State.RootOrder = new List<string> { first, designKey, second, workKey };
+            window.State.PanelWidth = 680; window.State.PanelHeight = 780; window.State.Validate(); window.Rebuild(); window.Dock.Place(); window.Save();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(Controls<Button>(window).Where(button => button.Name == "SoftwareTab" || button.Name == "TabGroup")
+                .Select(button => (button.Name == "TabGroup" ? "g:" : "t:") + button.Tag).SequenceEqual(window.State.RootOrder),
+                "real tab bar renders saved interleaved software and group order");
+            TabGroupDrag controller = window.GroupDrag;
+            Button folder = Controls<Button>(window).Single(button => button.Name == "TabGroup" && (button.Tag as string) == work.Id);
+            int depth = window.Dock.InteractionDepth; bool guarded = false;
+            System.Windows.Input.MouseButtonEventHandler observe = delegate { guarded = controller.IsInteracting && window.Dock.InteractionDepth == depth + 1; };
+            folder.PreviewMouseLeftButtonDown += observe;
+            folder.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount,
+                System.Windows.Input.MouseButton.Left) { RoutedEvent = System.Windows.Input.Mouse.PreviewMouseDownEvent });
+            folder.PreviewMouseLeftButtonDown -= observe; controller.Cancel();
+            Check(guarded && !controller.IsInteracting && window.Dock.InteractionDepth == depth,
+                "group tab press participates in the long-hold dock guard and releases it on cancel");
+            Check(!TabGroupDrag.Ready(200, new Point(), new Point(20, 0)) && !TabGroupDrag.Ready(400, new Point(), new Point()) &&
+                TabGroupDrag.Ready(400, new Point(), new Point(20, 0)), "tab ordering waits for both 320 ms hold and pointer movement");
+            TabDragData payload = controller.CreateGroupData(work.Id);
+            Check(payload.IsGroup && controller.ApplyReorder(payload, 1) && window.State.RootOrder.SequenceEqual(new[] { first, workKey, designKey, second }) &&
+                window.State.Groups.SequenceEqual(new[] { design, work }), "group reorder changes root placement independently of group creation order");
+            Check(!controller.CanReorder(payload), "rendering the reordered bar invalidates the completed drag payload");
+            TextBox search = Controls<TextBox>(window).Single(box => box.Name == "ShortcutSearch"); search.Text = "Ctrl";
+            search.Focus(); search.Select(2, 1); DataGrid grid = window.ShortcutGrid;
+            grid.SelectedItem = grid.Items[0]; object selected = grid.SelectedItem; string active = window.State.ActiveTabId;
+            payload = controller.CreateData(original[1].Id);
+            Check(controller.ApplyReorder(payload, 0) && window.State.RootOrder.SequenceEqual(new[] { second, first, workKey, designKey }),
+                "software tab can be moved before groups and other software tabs");
+            Check(Object.ReferenceEquals(search, Controls<TextBox>(window).Single(box => box.Name == "ShortcutSearch")) && search.Text == "Ctrl" &&
+                search.SelectionStart == 2 && search.SelectionLength == 1 && window.ShortcutGrid == grid && grid.SelectedItem == selected && window.State.ActiveTabId == active,
+                "bar-only reorder retains the active shortcut list, selection, search text and caret");
+            Check(StateStore.Read(window.Store.StatePath).RootOrder.SequenceEqual(window.State.RootOrder), "mixed tab order saves immediately to the real isolated store");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); window.UpdateLayout();
+            folder = Controls<Button>(window).Single(button => button.Name == "TabGroup" && (button.Tag as string) == design.Id);
+            payload = controller.CreateData(original[0].Id);
+            TabDropLocation left = controller.Resolve(payload, folder.TranslatePoint(new Point(folder.ActualWidth * 0.1, folder.ActualHeight / 2), window.TabBarScroll));
+            TabDropLocation center = controller.Resolve(payload, folder.TranslatePoint(new Point(folder.ActualWidth * 0.5, folder.ActualHeight / 2), window.TabBarScroll));
+            TabDropLocation right = controller.Resolve(payload, folder.TranslatePoint(new Point(folder.ActualWidth * 0.9, folder.ActualHeight / 2), window.TabBarScroll));
+            int folderPosition = window.State.RootOrder.IndexOf(designKey);
+            Check(left.Kind == TabDropKind.Reorder && left.Insertion == folderPosition && right.Kind == TabDropKind.Reorder && right.Insertion == folderPosition + 1 &&
+                center.Kind == TabDropKind.IntoGroup && center.GroupId == design.Id, "real group geometry separates ordering edges from join-group center");
+            Check(controller.Resolve(payload, new Point(-1, 10)).Kind == TabDropKind.None &&
+                controller.Resolve(payload, new Point(10, window.TabBarScroll.ActualHeight + 1)).Kind == TabDropKind.None,
+                "pointer outside the tab scroll viewport has no reorder destination");
+            controller.ShowMarker(left.X); window.UpdateLayout(); Capture(window, Path.Combine(output, "tab-order-insertion-line.png"));
+            AdornerLayer layer = AdornerLayer.GetAdornerLayer(window.TabBarScroll);
+            Check(layer != null && layer.GetAdorners(window.TabBarScroll) != null && layer.GetAdorners(window.TabBarScroll).Length == 1,
+                "ordering indicator is a visible adorner attached to the tab bar");
+            controller.Highlight(folder); window.UpdateLayout();
+            Check(layer.GetAdorners(window.TabBarScroll) == null && Object.ReferenceEquals(folder.BorderBrush, window.Resources["AccentBrush"]),
+                "group join highlight replaces the ordering line rather than showing both");
+            controller.Cancel();
+            Check(layer.GetAdorners(window.TabBarScroll) == null && !Object.ReferenceEquals(folder.BorderBrush, window.Resources["AccentBrush"]),
+                "cancelling removes the insertion line and restores the group border");
+            TabDragData cancelledPayload = payload; payload = controller.CreateData(original[0].Id);
+            Check(!controller.CanReorder(cancelledPayload) && controller.CanReorder(payload), "starting another drag cannot revive an earlier cancelled payload");
+            payload = controller.CreateGroupData(work.Id);
+            center = controller.Resolve(payload, folder.TranslatePoint(new Point(folder.ActualWidth * 0.5, folder.ActualHeight / 2), window.TabBarScroll));
+            Check(center.Kind == TabDropKind.Reorder && !controller.CanDrop(payload, design.Id), "dragging a group over another group reorders without nesting");
+            Check(!controller.CanReorder(new TabDragData { Source = null, IsGroup = true, GroupId = work.Id }), "foreign drag payloads cannot sort the tab bar");
+            window.TogglePanelPin(); string locked = File.ReadAllText(window.Store.StatePath);
+            payload = controller.CreateGroupData(work.Id);
+            Check(!controller.ApplyReorder(payload, 0) && !window.ReorderTabBar(first, 0) && File.ReadAllText(window.Store.StatePath) == locked,
+                "pinned panel blocks software and group ordering without changing saved state");
+            window.TogglePanelPin();
+            Button ordinary = Controls<Button>(window).Single(button => button.Name == "SoftwareTab" && (button.Tag as string) == original[1].Id);
+            // This check synthesizes only this app's routed release, without a
+            // physical mouse press. Capture's synchronous move reports Released;
+            // exclude that move while preparing the normal Button pressed state.
+            System.Windows.Input.MouseEventHandler dragMove = (System.Windows.Input.MouseEventHandler)Delegate.CreateDelegate(
+                typeof(System.Windows.Input.MouseEventHandler), controller, "OnMove");
+            ordinary.PreviewMouseMove -= dragMove;
+            ordinary.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount,
+                System.Windows.Input.MouseButton.Left) { RoutedEvent = System.Windows.Input.Mouse.PreviewMouseDownEvent });
+            Check(ordinary.CaptureMouse(), "ordinary tab press can retain native Button capture");
+            typeof(ButtonBase).GetProperty("IsPressed").GetSetMethod(true).Invoke(ordinary, new object[] { true });
+            payload = controller.CreateData(original[1].Id); bool releasePreserved = false, releaseObserved = false;
+            System.Windows.Input.MouseButtonEventHandler observeRelease = delegate { releaseObserved = true; releasePreserved = ordinary.IsMouseCaptured && ordinary.IsPressed && !controller.IsInteracting; };
+            window.PreviewMouseLeftButtonUp += observeRelease;
+            ordinary.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount,
+                System.Windows.Input.MouseButton.Left) { RoutedEvent = System.Windows.Input.Mouse.PreviewMouseUpEvent });
+            window.PreviewMouseLeftButtonUp -= observeRelease;
+            ordinary.PreviewMouseMove += dragMove;
+            Check(releasePreserved && window.Dock.InteractionDepth == depth, "preview release clears the hold guard without suppressing Button's ordinary click (observed=" + releaseObserved + ", capture=" + ordinary.IsMouseCaptured + ", pressed=" + ordinary.IsPressed + ", interacting=" + controller.IsInteracting + ", depth=" + window.Dock.InteractionDepth + ")");
+            ordinary.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount,
+                System.Windows.Input.MouseButton.Left) { RoutedEvent = System.Windows.Input.Mouse.MouseUpEvent });
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(window.ActiveTab() == original[1] && !controller.ApplyReorder(payload, 3), "ordinary software clicks still navigate and invalidate the previous drag controller");
+            OpenGroup(Controls<Button>(window).Single(button => button.Name == "TabGroup" && (button.Tag as string) == design.Id));
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            controller = window.GroupDrag; List<string> root = window.State.RootOrder.ToList(); List<ShortcutEntry> content = notes.Shortcuts.ToList();
+            Check(controller.CreateGroupData(work.Id) == null && controller.CreateData(original[0].Id) == null,
+                "inside a group only its member tabs can begin ordering");
+            payload = controller.CreateData(notes.Id);
+            Check(controller.ApplyReorder(payload, 0) && TabOrdering.Visible(window.State).SequenceEqual(new[] { TabOrdering.TabKey(notes.Id), TabOrdering.TabKey(drawing.Id) }) &&
+                notes.GroupId == design.Id && drawing.GroupId == design.Id && notes.Shortcuts.SequenceEqual(content) && window.State.RootOrder.SequenceEqual(root),
+                "member tabs reorder within their group while preserving contents and root placement");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(Controls<Button>(window).Where(button => button.Name == "SoftwareTab").Select(button => button.Tag as string).SequenceEqual(new[] { notes.Id, drawing.Id }) &&
+                Controls<Button>(window).Single(button => button.Name == "BackToTabs").AllowDrop, "sorted member buttons render in order and retain the drag-out target");
+            Capture(window, Path.Combine(output, "tab-order-members.png"));
+            AppState saved = StateStore.Read(window.Store.StatePath);
+            Check(TabOrdering.Visible(saved).SequenceEqual(TabOrdering.Visible(window.State)) && saved.Tabs.Last().Id == other.Id,
+                "saved member order persists and leaves other group slots untouched");
+            window.LeaveGroup(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            controller = window.GroupDrag; payload = controller.CreateData(original[0].Id);
+            Check(controller.ApplyDrop(payload, work.Id) && original[0].GroupId == work.Id && !window.State.RootOrder.Contains(first),
+                "joining a group still works after tab and group reordering");
+            Check(window.MoveTabToGroup(original[0].Id, null) && window.State.RootOrder.Last() == first,
+                "moving out restores a root software tab after the existing sorted items");
+            List<string> expanded = window.State.RootOrder.ToList(); int position = expanded.IndexOf(designKey);
+            expanded.RemoveAt(position); expanded.InsertRange(position, new[] { TabOrdering.TabKey(notes.Id), TabOrdering.TabKey(drawing.Id) });
+            Check(window.Ungroup(design) && window.State.RootOrder.SequenceEqual(expanded) && notes.GroupId == null && drawing.GroupId == null,
+                "dissolving a sorted group replaces it in place with its sorted member tabs");
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); Capture(window, Path.Combine(output, "tab-order-mixed.png"));
+            window.Ungroup(work); window.State.Tabs = original; window.State.RootOrder = originalOrder;
+            window.State.ActiveTabId = originalActive; window.State.PanelWidth = width; window.State.PanelHeight = height;
+            window.State.Validate(); window.Rebuild(); window.Dock.Place(); window.Save();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Check(window.Dock.InteractionDepth == depth && window.State.Groups.Count == 0 && window.State.RootOrder.SequenceEqual(originalOrder),
+                "tab ordering workflow releases guards and restores the original fixture");
         }
         [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int width, int height, uint flags);
         [DllImport("dwmapi.dll")] static extern int DwmFlush();
@@ -275,6 +774,10 @@ namespace ShortcutDock
                         Check(window.Dock != null, "WPF window and native controller start");
                         Check(window.ShortcutGrid.Columns.Count == 3 && window.ShortcutGrid.Items.Count == 12, "three-column shortcut table renders");
                         Check(Controls<TextBlock>(window).Any(t => t.Text == "食得咸鱼抵得渴") && Controls<Image>(window).Any(i => i.Name == "XiaohongshuIcon" && i.Source == BrandIcon.Source), "uploaded icon and requested subtitle render together");
+                        VerifySearchRendering(window, output);
+                        VerifyRowReorder(window, output);
+                        await VerifyTabGroups(window, output);
+                        await VerifyTabBarOrdering(window, output);
                         foreach (string theme in new[] { "Light", "Dark", "Glass", "Auto" })
                         {
                             window.State.Theme = theme; window.ApplyTheme();

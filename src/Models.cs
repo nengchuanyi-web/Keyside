@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 
@@ -24,8 +25,17 @@ namespace ShortcutDock
     {
         [DataMember] public string Id { get; set; }
         [DataMember] public string Name { get; set; }
+        [DataMember(EmitDefaultValue = false)] public string GroupId { get; set; }
         [DataMember] public List<ShortcutEntry> Shortcuts { get; set; }
         public SoftwareTab() { Id = Guid.NewGuid().ToString("N"); Shortcuts = new List<ShortcutEntry>(); }
+    }
+
+    [DataContract]
+    public sealed class TabGroup
+    {
+        [DataMember] public string Id { get; set; }
+        [DataMember] public string Name { get; set; }
+        public TabGroup() { Id = Guid.NewGuid().ToString("N"); }
     }
 
     [DataContract]
@@ -48,11 +58,14 @@ namespace ShortcutDock
         [DataMember] public bool NotesCollapsed { get; set; }
         [DataMember] public double[] ColumnWeights { get; set; }
         [DataMember] public string ActiveTabId { get; set; }
+        [DataMember(EmitDefaultValue = false)] public string ActiveGroupId { get; set; }
+        [DataMember] public List<TabGroup> Groups { get; set; }
+        [DataMember] public List<string> RootOrder { get; set; }
         [DataMember] public List<SoftwareTab> Tabs { get; set; }
         public AppState()
         {
             Version = 1; Language = "zh"; Theme = "Glass"; Edge = "Right";
-            Offset = 0.35; FloatingX = 100; FloatingY = 100; Tabs = new List<SoftwareTab>();
+            Offset = 0.35; FloatingX = 100; FloatingY = 100; Tabs = new List<SoftwareTab>(); Groups = new List<TabGroup>(); RootOrder = new List<string>();
             PanelWidth = 440; PanelHeight = 660; PanelOpacity = 1;
             PanelColor = PanelPalette.Blue; FontScale = 1;
             ColumnWeights = new[] { 1.15, 1.15, 0.85 };
@@ -116,6 +129,17 @@ namespace ShortcutDock
                 PanelColor = PanelColor.ToUpperInvariant();
             }
             PanelColor = PanelPalette.Normalize(PanelColor);
+            if (Groups == null) Groups = new List<TabGroup>();
+            if (Groups.Count > 200) throw new InvalidDataException("Too many groups (maximum 200).");
+            HashSet<string> groupIds = new HashSet<string>();
+            foreach (TabGroup group in Groups)
+            {
+                if (group == null || String.IsNullOrWhiteSpace(group.Name) || group.Name.Length > 60)
+                    throw new InvalidDataException("A group needs a name of 1 to 60 characters.");
+                if (String.IsNullOrEmpty(group.Id) || !groupIds.Add(group.Id))
+                { group.Id = Guid.NewGuid().ToString("N"); groupIds.Add(group.Id); }
+            }
+            if (ActiveGroupId == null || !groupIds.Contains(ActiveGroupId)) ActiveGroupId = null;
             if (Tabs == null) Tabs = new List<SoftwareTab>();
             if (Tabs.Count > 200) throw new InvalidDataException("Too many tabs (maximum 200).");
             HashSet<string> ids = new HashSet<string>();
@@ -124,6 +148,7 @@ namespace ShortcutDock
                 if (tab == null || String.IsNullOrWhiteSpace(tab.Name)) throw new InvalidDataException("A tab needs a name.");
                 if (tab.Name.Length > 60) throw new InvalidDataException("Tab name exceeds 60 characters.");
                 if (String.IsNullOrEmpty(tab.Id) || !ids.Add(tab.Id)) { tab.Id = Guid.NewGuid().ToString("N"); ids.Add(tab.Id); }
+                if (tab.GroupId == null || !groupIds.Contains(tab.GroupId)) tab.GroupId = null;
                 if (tab.Shortcuts == null) tab.Shortcuts = new List<ShortcutEntry>();
                 if (tab.Shortcuts.Count > 10000) throw new InvalidDataException("Too many shortcuts.");
                 foreach (ShortcutEntry row in tab.Shortcuts)
@@ -136,7 +161,12 @@ namespace ShortcutDock
                     if (String.IsNullOrEmpty(row.Id)) row.Id = Guid.NewGuid().ToString("N");
                 }
             }
-            if (!Tabs.Exists(t => t.Id == ActiveTabId)) ActiveTabId = Tabs.Count > 0 ? Tabs[0].Id : null;
+            TabOrdering.Normalize(this);
+            if (!Tabs.Exists(t => t.Id == ActiveTabId && t.GroupId == ActiveGroupId))
+            {
+                SoftwareTab first = TabOrdering.VisibleTabs(this).FirstOrDefault();
+                ActiveTabId = first == null ? null : first.Id;
+            }
         }
         static bool ValidPositive(double value) { return value > 0 && !Double.IsNaN(value) && !Double.IsInfinity(value); }
     }
