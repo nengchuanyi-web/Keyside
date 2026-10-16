@@ -318,10 +318,19 @@ namespace ShortcutDock
             while (item != null) { DataGridCell cell = item as DataGridCell; if (cell != null) return cell; item = ParentOf(item); }
             return null;
         }
-        static DependencyObject ParentOf(DependencyObject item)
+        internal static DependencyObject ParentOf(DependencyObject item)
         {
-            FrameworkContentElement content = item as FrameworkContentElement;
-            return content != null ? content.Parent : VisualTreeHelper.GetParent(item);
+            if (item == null) return null;
+            ContentElement content = item as ContentElement;
+            if (content != null)
+            {
+                DependencyObject parent = ContentOperations.GetParent(content);
+                FrameworkContentElement frameworkContent = content as FrameworkContentElement;
+                return parent ?? (frameworkContent == null ? null : frameworkContent.Parent);
+            }
+            if (item is Visual || item is System.Windows.Media.Media3D.Visual3D)
+                return VisualTreeHelper.GetParent(item);
+            return LogicalTreeHelper.GetParent(item);
         }
         internal bool EditCell(DependencyObject source)
         {

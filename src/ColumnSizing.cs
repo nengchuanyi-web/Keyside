@@ -50,11 +50,11 @@ namespace ShortcutDock
         DataGridColumnHeader HeaderGrip(DependencyObject source)
         {
             DependencyObject item = source;
-            while (item != null && !(item is Thumb) && !(item is DataGridColumnHeader)) item = VisualTreeHelper.GetParent(item);
+            while (item != null && !(item is Thumb) && !(item is DataGridColumnHeader)) item = MainWindow.ParentOf(item);
             Thumb grip = item as Thumb;
             if (grip == null || (grip.Name != "PART_LeftHeaderGripper" && grip.Name != "PART_RightHeaderGripper")) return null;
             item = grip;
-            while (item != null && !(item is DataGridColumnHeader)) item = VisualTreeHelper.GetParent(item);
+            while (item != null && !(item is DataGridColumnHeader)) item = MainWindow.ParentOf(item);
             DataGridColumnHeader header = item as DataGridColumnHeader;
             return header != null && grid.Columns.Contains(header.Column) ? header : null;
         }

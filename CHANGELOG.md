@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1 · 2026-10-17
+
+- Fix the InvalidOperationException caused by double-clicking inline text or emoji: column resizing now traverses both content and visual parents safely.
+- Reuse the safe traversal for cell editing, and add routed double-click regression checks while retaining header resize coverage.
+
 ## 0.9.0 · 2026-10-10
 
 - Hold an app tab or group for 320 ms, drag to the vertical insertion line and release to reorder. Top-level tabs and groups can be interleaved; member tabs reorder within their group.

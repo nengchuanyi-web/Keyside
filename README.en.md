@@ -12,9 +12,9 @@
 
 Keyside is a local Windows panel for organizing and looking up keyboard shortcuts. Dock it to any screen edge, hover the narrow edge strip to reveal it, and move away or click outside to hide it. Keep a named tab for each app, with shortcuts, actions and your own notes in one place.
 
-> Download `Keyside-v0.9.0-win-x64.zip`, **extract the entire archive and double-click `Keyside.exe`**. No installer or .NET SDK is required.
+> Download `Keyside-v0.9.1-win-x64.zip`, **extract the entire archive and double-click `Keyside.exe`**. No installer or .NET SDK is required.
 
-v0.9.0 adds ordering for app tabs and groups. Hold about 0.3 seconds, drag to the insertion line and release to save; use a group's highlighted center to add a tab to it. Member tabs can also be reordered. Exit the previous version from the tray before running the update; existing groups, shortcuts and notes are preserved.
+v0.9.1 fixes an exception when double-clicking text or emoji. v0.9.0 adds ordering for app tabs and groups. Hold about 0.3 seconds, drag to the insertion line and release to save; use a group's highlighted center to add a tab to it. Member tabs can also be reordered. Exit the previous version from the tray before running the update; existing groups, shortcuts and notes are preserved.
 
 ## Preview
 
@@ -89,7 +89,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\package.ps1
 
 Alternatively, double-click `Build.cmd`. Run `dist\Keyside.exe` or `Start.cmd` after building. The build uses the system .NET Framework compiler; no .NET SDK, Node, Python or NuGet is required.
 
-All **455 v0.9.0 checks passed**, covering mixed tab ordering, member order, insertion markers versus group join targets, persistence and migration, plus group navigation, moving tabs in and out, shortcut reordering, search rendering, editing locks, docking, column resizing, emoji and native glass composition. See the [verification report](docs/verification-v0.9.0.txt), [architecture](docs/Architecture.md) and [changelog](CHANGELOG.md). Checks use isolated data and this app's control events; the full OLE drag gesture still needs hands-on confirmation.
+All **457 v0.9.1 checks passed**, covering mixed tab ordering, member order, insertion markers versus group join targets, persistence and migration, plus group navigation, moving tabs in and out, shortcut reordering, search rendering, editing locks, docking, column resizing, emoji and native glass composition. See the [verification report](docs/verification-v0.9.1.txt), [architecture](docs/Architecture.md) and [changelog](CHANGELOG.md). Checks use isolated data and this app's control events; the full OLE drag gesture still needs hands-on confirmation.
 
 ## Credits and license
 

@@ -991,6 +991,23 @@ namespace ShortcutDock
                         window.Dock.Expand();
                         await System.Threading.Tasks.Task.Delay(220);
                         window.PreviewNotesVisibility(true); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+                        // Inline text is a ContentElement, not a Visual. Routed double-clicks
+                        // on emoji/text must not be mistaken for header resize gestures.
+                        Run inlineRun = new Run("备注 emoji 🎉");
+                        Span inlineSpan = new Span(inlineRun);
+                        TextBlock inlineHost = new TextBlock(inlineSpan);
+                        Check(MainWindow.ParentOf(inlineRun) == inlineSpan && MainWindow.ParentOf(inlineSpan) == inlineHost
+                            && MainWindow.ParentOf(new Run("detached")) == null && MainWindow.ParentOf(new DependencyObject()) == null,
+                            "inline parent traversal supports Run, Span, detached text and non-visual objects");
+                        double[] beforeTextClick = (double[])window.State.ColumnWeights.Clone();
+                        foreach (DependencyObject textSource in new DependencyObject[] { inlineRun, inlineSpan, new Run("English 中文"), new DependencyObject() })
+                        {
+                            window.ShortcutGrid.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left) {
+                                RoutedEvent = Control.MouseDoubleClickEvent, Source = textSource });
+                        }
+                        await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+                        Check(window.State.ColumnWeights.SequenceEqual(beforeTextClick) && window.Dock.InteractionDepth == 0,
+                            "routed double-clicks originating from inline text do not throw or alter column widths");
                         for (int columnIndex = 0; columnIndex < 3; columnIndex++)
                         {
                             DataGridColumn column = window.ShortcutGrid.Columns[columnIndex];
